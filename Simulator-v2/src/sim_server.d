@@ -117,6 +117,9 @@ SimConfig loadConfig(string[] cmdLineArgs, string configFileName, SimConfig old 
 /// -----  MESSAGE TYPES  ----- ///
 ///-----------------------------///
 
+struct TEST {
+    int i;
+}
 
 /// --- PANEL --- ///
 
@@ -483,6 +486,11 @@ void main(string[] args){
         stateUpdated = true;
         
         receive(
+            /// --- TEST --- ///
+            (TEST t) {
+                writeln("test: ", t);
+            },
+
             /// --- RESET --- ///
 
             (ReloadConfig r){
@@ -494,6 +502,7 @@ void main(string[] args){
             /// --- WRITE --- ///
 
             (MotorDirection md){
+                //writeln("motor pico ", md);
                 assert(Dirn.min <= md &&  md <= Dirn.max,
                     "Tried to set motor direction to invalid direction " ~ md.to!int.to!string);
                 if(state.currDirn != md  &&  !state.isOutOfBounds){
@@ -798,6 +807,7 @@ void networkInterfaceProc(Tid receiver){
                     receiver.send(ReloadConfig());
                     break;
                 case 1:
+                    //receiver.send(TEST(buf[1]));
                     receiver.send(MotorDirection(
                         (buf[1] == 0)   ? Dirn.Stop :
                         (buf[1] < 128)  ? Dirn.Up   :
