@@ -8,11 +8,17 @@ const Port = "15657"
 
 
 
-type Elevator struct {
+type elevator struct {
 	Status int
 	Floor int
 	AtFloor bool
 	OrderButton bool
 	StopButton bool
 	Obstruction bool
+}
+
+
+type Elevator struct {
+	Data elevator
+	Test elevator
 }

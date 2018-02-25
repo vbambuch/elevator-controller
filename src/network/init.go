@@ -7,7 +7,7 @@ import (
 	//"fmt"
 )
 
-func ReceiveMessage(socket *net.TCPConn, stateChange chan<- []byte) {
+func MessageReceiver(socket *net.TCPConn, stateChange chan<- []byte) {
 	buf := make([]byte, 4)
 
 	for {
@@ -21,7 +21,7 @@ func ReceiveMessage(socket *net.TCPConn, stateChange chan<- []byte) {
 	}
 }
 
-func SendMessage(socket *net.TCPConn, instrChannel <-chan []byte) {
+func MessageSender(socket *net.TCPConn, instrChannel <-chan []byte) {
 	for {
 		msg := <- instrChannel
 		_, err := socket.Write(msg)
