@@ -2,101 +2,86 @@ package main
 
 import (
 	"fmt"
-	"net"
 	"time"
 	"consts"
 	"network"
+	"tests"
 	"helper"
 )
 
-type State struct {
-	floor int
-	atFloor bool
-	status int
-	orderButton bool
-	stopButton bool
-	obstruction bool
-}
-
-
-func getInstruction(b0, b1, b2, b3 byte) ([]byte){
-	return []byte{b0, b1, b2, b3}
-
-}
-
-
-func stateHandler(stateChange <-chan []byte, instChannel chan<- []byte, stateInfo chan<- State) {
-	state := State{}
+func stateHandler(stateChange <-chan []byte, instChannel chan<- []byte, stateInfo chan<- consts.Elevator) {
+	elevator := consts.Elevator{}
 
 	for {
 		buf := <- stateChange
+		changed := false
 
 		switch buf[0] {
 		case consts.OrderButtonPressed:
-			state.orderButton = int(buf[1]) == 1
+			val := int(buf[1]) == 1
+			if elevator.OrderButton != val {
+				elevator.OrderButton = val
+				changed = true
+			}
 		case consts.FloorSensor:
-			state.atFloor = int(buf[1]) == 1
-			state.floor = int(buf[2])
-			if state.atFloor {
-				instChannel <- getInstruction(consts.FloorIndicator, byte(state.floor), consts.EmptyByte, consts.EmptyByte)
+			val := int(buf[2])
+			elevator.AtFloor = int(buf[1]) == 1
+			if elevator.Floor != val && elevator.AtFloor{
+				elevator.Floor = val
+				changed = true
+
+				instChannel <- helper.GetInstruction(
+					consts.FloorIndicator, byte(elevator.Floor), consts.EmptyByte, consts.EmptyByte)
 			}
 		case consts.StopButtonPressed:
-			state.stopButton = int(buf[1]) == 1
+			val := int(buf[1]) == 1
+			if elevator.StopButton != val {
+				elevator.StopButton = val
+				changed = true
+			}
 		case consts.ObstructionSwitch:
-			state.obstruction = int(buf[1]) == 1
+			val := int(buf[1]) == 1
+			if elevator.Obstruction != val {
+				elevator.Obstruction = val
+				changed = true
+			}
 		}
 
-		stateInfo <- state
+		if changed {
+			stateInfo <- elevator
+		}
 	}
 }
 
 func floorChecker(instrChannel chan<- []byte) {
     for {
-		instrChannel <- getInstruction(consts.FloorSensor, consts.EmptyByte, consts.EmptyByte, consts.EmptyByte)
+		instrChannel <- helper.GetInstruction(
+			consts.FloorSensor, consts.EmptyByte, consts.EmptyByte, consts.EmptyByte)
 		time.Sleep(500 * time.Millisecond)
 	}
 }
 
-func zigZag(stateInfo <-chan State, instrChannel chan<- []byte) {
-	for {
-		info := <- stateInfo
-
-		if info.atFloor {
-			switch info.floor {
-			case consts.MinFloor:
-				instrChannel <- getInstruction(consts.MotorDirection, consts.MotorUp, consts.EmptyByte, consts.EmptyByte)
-			case consts.MaxFloor:
-				instrChannel <- getInstruction(consts.MotorDirection, consts.MotorDown, consts.EmptyByte, consts.EmptyByte)
-			}
-		}
-	}
-}
 
 
 func main() {
 	// channels
 	stateChange := make(chan []byte)
 	instrChannel := make(chan []byte)
-	stateInfo := make(chan State)
+	stateInfo := make(chan consts.Elevator)
 
-	// Set up send socket
-	addr, err := net.ResolveTCPAddr("tcp", ":15657")
-	helper.HandleError(err, "Resolve tcp")
-
-	socket, err := net.DialTCP("tcp", nil, addr)
-	helper.HandleError(err, "Dial tcp")
 
 	fmt.Println("connection created")
-
+	socket := network.GetSocket(consts.Address, consts.Port)
 
 	go floorChecker(instrChannel)
 	go stateHandler(stateChange, instrChannel, stateInfo)
 	go network.ReceiveMessage(socket, stateChange)
 	go network.SendMessage(socket, instrChannel)
 
-	go zigZag(stateInfo, instrChannel)
+	go tests.ZigZag(stateInfo, instrChannel)
 
-	instrChannel <- getInstruction(consts.MotorDirection, consts.MotorUp, consts.EmptyByte, consts.EmptyByte)
+	instrChannel <- helper.GetInstruction(
+		consts.MotorDirection, consts.MotorUp, consts.EmptyByte, consts.EmptyByte)
 
 	blocker := make(chan bool, 1)
 	<- blocker

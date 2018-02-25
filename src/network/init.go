@@ -3,13 +3,14 @@ package network
 import (
 	"net"
 	"helper"
+	"strings"
+	//"fmt"
 )
 
 func ReceiveMessage(socket *net.TCPConn, stateChange chan<- []byte) {
 	buf := make([]byte, 4)
 
 	for {
-		//fmt.Println("Waiting for data...")
 		n, err := socket.Read(buf[:])
 		helper.HandleError(err, "Read socket error")
 
@@ -25,7 +26,18 @@ func SendMessage(socket *net.TCPConn, instrChannel <-chan []byte) {
 		msg := <- instrChannel
 		_, err := socket.Write(msg)
 		helper.HandleError(err, "write byte")
-
-		//fmt.Println("message has been written")
 	}
+}
+
+func GetSocket(addr string, port string) (*net.TCPConn) {
+	address := strings.Join([]string{addr, port}, ":")
+
+	// Set up send socket
+	tcpAddr, err := net.ResolveTCPAddr("tcp", address)
+	helper.HandleError(err, "Resolve tcp")
+
+	socket, err := net.DialTCP("tcp", nil, tcpAddr)
+	helper.HandleError(err, "Dial tcp")
+
+	return socket
 }

@@ -1,6 +1,8 @@
 /target/
 **/*.rs.bk
 Cargo.lock
+.idea/
+pkg/
 
 # Emacs autosave files
 **/*~
