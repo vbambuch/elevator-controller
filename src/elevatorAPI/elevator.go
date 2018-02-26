@@ -5,7 +5,6 @@ import (
 	"network"
 	"helper"
 	"time"
-	"sync"
 )
 
 /**
@@ -41,47 +40,45 @@ func stateHandler(stateChan <-chan []byte, instChan chan<- []byte, stateInfoChan
 
 	for {
 		buf := <- stateChan
-		changed := false
+		changed := false //for checking previous value
 
 		switch buf[0] {
 		case consts.OrderButtonPressed:
 			val := int(buf[1]) == 1
-			if elevator.Data.OrderButton != val {
-				elevator.Data.OrderButton = val
+			if elevator.OrderButton != val {
+				elevator.OrderButton = val
 				changed = true
 			}
 		case consts.FloorSensor:
 			val := int(buf[2])
-			elevator.Data.AtFloor = int(buf[1]) == 1
-			if elevator.Data.Floor != val && elevator.Data.AtFloor{
-				elevator.Data.Floor = val
+			elevator.AtFloor = int(buf[1]) == 1
+			if elevator.Floor != val && elevator.AtFloor{
+				elevator.Floor = val
 				changed = true
 
-				instChan <- FloorIndicator(elevator.Data.Floor)
+				instChan <- FloorIndicator(elevator.Floor)
 			}
 		case consts.StopButtonPressed:
 			val := int(buf[1]) == 1
-			if elevator.Data.StopButton != val {
-				elevator.Data.StopButton = val
+			if elevator.StopButton != val {
+				elevator.StopButton = val
 				changed = true
 			}
 		case consts.ObstructionSwitch:
 			val := int(buf[1]) == 1
-			if elevator.Data.Obstruction != val {
-				elevator.Data.Obstruction = val
+			if elevator.Obstruction != val {
+				elevator.Obstruction = val
 				changed = true
 			}
 		case consts.MotorDirection:
 			val := int(buf[1])
-			if elevator.Data.Status != val {
-				elevator.Data.Status = val
-				changed = true
+			if elevator.Status != val {
+				elevator.Status = val
+				//changed = true
 			}
 		}
 
-
 		if changed {
-			elevator.Test = elevator.Data
 			stateInfoChan <- elevator
 		}
 	}

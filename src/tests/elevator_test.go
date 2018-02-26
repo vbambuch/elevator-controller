@@ -6,8 +6,7 @@ import (
 	"bytes"
 	"helper"
 	"elevatorAPI"
-	//"time"
-	"fmt"
+	//"fmt"
 )
 
 /**
@@ -32,65 +31,59 @@ func TestGetInstr(t *testing.T)  {
 /**
  * Basic elevator movement test
  */
-func zigZag(stateInfoChan <-chan C.Elevator, instrChan chan<- []byte, stateChan chan<- []byte) {
+func zigZag(t *testing.T, stateInfoChan <-chan C.Elevator, instrChan chan<- []byte, stateChan chan<- []byte, stopChan chan<- bool) {
 	instrChan <- elevatorAPI.MotorUp(stateChan)
+
+	go helper.Timeout(15000, stopChan)
 
 	for {
 		info := <- stateInfoChan
+		//fmt.Println("Got:", info)
 
-		fmt.Println("Got data:", info.Data)
-
-		if info.Data.AtFloor {
-			switch info.Data.Floor {
+		if info.AtFloor {
+			switch info.Floor {
 			case C.MinFloor:
+				if info.Status != C.MotorDown {
+					t.Errorf("Motor should go 200, not %d", info.Status)
+					stopChan <- true
+				}
+				if info.Floor != C.MinFloor {
+					t.Errorf("Indicator should be 0, not %d", info.Floor)
+					stopChan <- true
+				}
 				instrChan <- elevatorAPI.MotorUp(stateChan)
+			case 1:
+				if info.Floor != 1 {
+					t.Errorf("Indicator should be 1, not %d", info.Floor)
+					stopChan <- true
+				}
+			case 2:
+				if info.Floor != 2 {
+					t.Errorf("Indicator should be 2, not %d", info.Floor)
+					stopChan <- true
+				}
 			case C.MaxFloor:
+				if info.Status != C.MotorUp {
+					t.Errorf("Motor should go 100, not %d", info.Status)
+					stopChan <- true
+				}
+				if info.Floor != C.MaxFloor {
+					t.Errorf("Indicator should be 3, not %d", info.Floor)
+					stopChan <- true
+				}
 				instrChan <- elevatorAPI.MotorDown(stateChan)
 			}
 		}
 	}
-}
 
-func floorTesting(stateInfoChan <-chan C.Elevator, stopChan chan<- bool, t *testing.T)  {
-	//time.Sleep(10000 * time.Millisecond)
-	floor := -1
-
-	for {
-		info := <- stateInfoChan
-
-		fmt.Println("Got test:", info.Test)
-
-		if info.Test.AtFloor {
-			if floor != -1 {
-				switch floor {
-				case 0:
-					if info.Test.Status != C.MotorUp {
-						t.Errorf("Motor should go UP, not %d", info.Test.Status)
-						stopChan <- true
-					}
-				case 3:
-					if info.Test.Status != C.MotorDown {
-						t.Errorf("Motor should go DOWN, not %d", info.Test.Status)
-						stopChan <- true
-					}
-				}
-			} else {
-				floor = info.Test.Floor
-			}
-		}
-	}
-
-	stopChan <- true
 }
 
 func TestZigZag(t *testing.T) {
 	stateChan, instrChan, stateInfoChan := elevatorAPI.Init()
 	stopChan := make(chan bool)
 
-	go zigZag(stateInfoChan, instrChan, stateChan)
-	go floorTesting(stateInfoChan, stopChan, t)
+	go zigZag(t, stateInfoChan, instrChan, stateChan, stopChan)
 
-	//fmt.Println("Test started")
 	<- stopChan
 }
 
