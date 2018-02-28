@@ -6,7 +6,7 @@ import (
 	"bytes"
 	"helper"
 	"elevatorAPI"
-	//"fmt"
+	"fmt"
 )
 
 /**
@@ -32,7 +32,7 @@ func TestGetInstr(t *testing.T)  {
  * Basic elevator movement test
  */
 func zigZag(t *testing.T, stateInfoChan <-chan C.Elevator, instrChan chan<- []byte, stateChan chan<- []byte, stopChan chan<- bool) {
-	instrChan <- elevatorAPI.MotorUp(stateChan)
+	instrChan <- elevatorAPI.WriteMotorUp(stateChan)
 
 	go helper.Timeout(15000, stopChan)
 
@@ -51,7 +51,7 @@ func zigZag(t *testing.T, stateInfoChan <-chan C.Elevator, instrChan chan<- []by
 					t.Errorf("Indicator should be 0, not %d", info.Floor)
 					stopChan <- true
 				}
-				instrChan <- elevatorAPI.MotorUp(stateChan)
+				instrChan <- elevatorAPI.WriteMotorUp(stateChan)
 			case 1:
 				if info.Floor != 1 {
 					t.Errorf("Indicator should be 1, not %d", info.Floor)
@@ -71,7 +71,7 @@ func zigZag(t *testing.T, stateInfoChan <-chan C.Elevator, instrChan chan<- []by
 					t.Errorf("Indicator should be 3, not %d", info.Floor)
 					stopChan <- true
 				}
-				instrChan <- elevatorAPI.MotorDown(stateChan)
+				instrChan <- elevatorAPI.WriteMotorDown(stateChan)
 			}
 		}
 	}
@@ -88,3 +88,24 @@ func TestZigZag(t *testing.T) {
 }
 
 
+/**
+ * Elevator calls testing
+ */
+func elevatorCalls(stateInfoChan <-chan C.Elevator)  {
+	for {
+		info := <- stateInfoChan
+		fmt.Println("Got:", info)
+		//if info.AtFloor {
+		//}
+	}
+}
+
+
+func TestElevatorCalls(t *testing.T)  {
+	_, _, stateInfoChan := elevatorAPI.Init()
+	stopChan := make(chan bool)
+
+	go elevatorCalls(stateInfoChan)
+
+	<- stopChan
+}
