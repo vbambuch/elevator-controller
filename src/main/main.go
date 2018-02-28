@@ -2,13 +2,13 @@ package main
 
 import (
 	"fmt"
-	"elevatorAPI"
+	"elevator"
 )
 
 
 func main() {
 
-	elevatorAPI.Init()
+	elevator.Init()
 
 	fmt.Println("App started")
 	blocker := make(chan bool, 1)
