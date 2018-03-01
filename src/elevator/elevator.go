@@ -33,8 +33,8 @@ func stateHandler(floorChan <- chan int, obstructChan, stopChan <-chan bool, but
 			ElevatorState.SetOrderButton(button)
 
 		case floor := <-floorChan:
-			//fmt.Printf("%+v\n", floor)
-			if (floor == consts.MinFloor || floor == consts.MaxFloor) && ElevatorState.PrevFloor != 0  {
+			//fmt.Printf("floor: %+v\n", floor)
+			if floor == consts.MinFloor || floor == consts.MaxFloor {
 				ElevatorState.SetDirection(consts.MotorSTOP)
 			}
 			ElevatorState.SetFloorIndicator(floor)
@@ -60,6 +60,9 @@ func stateHandler(floorChan <- chan int, obstructChan, stopChan <-chan bool, but
 func Init() (chan Elevator) {
 
 	InitIO()
+
+	// setup default ElevatorState properties
+	ElevatorState.PrevFloor = -1
 
 	buttonsChan := make(chan consts.ButtonEvent)
 	floorChan := make(chan int)

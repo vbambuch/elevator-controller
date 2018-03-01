@@ -2,6 +2,7 @@ package elevator
 
 import (
 	"consts"
+	//"fmt"
 )
 
 var ElevatorState = Elevator{}
@@ -23,7 +24,11 @@ func (i *Elevator) SetOrderButton(button consts.ButtonEvent) {
 }
 
 func (i *Elevator) SetFloorIndicator(floor int)  {
-	i.PrevFloor = i.Floor
+	if i.PrevFloor == -1 {
+		i.PrevFloor = floor
+	} else {
+		i.PrevFloor = i.Floor
+	}
 	i.Floor = floor
 	WriteFloorIndicator(floor)
 }
@@ -32,7 +37,6 @@ func (i *Elevator) SetObstruction(obstruction bool)  {
 	i.Obstruction = obstruction
 
 	if obstruction {
-		i.PrevDirection = i.Direction
 		i.SetDirection(consts.MotorSTOP)
 	} else {
 		i.SetDirection(i.PrevDirection)
@@ -40,6 +44,8 @@ func (i *Elevator) SetObstruction(obstruction bool)  {
 }
 
 func (i *Elevator) SetDirection(direction consts.MotorDirection)  {
+	//fmt.Println("motor", direction)
+	i.PrevDirection = i.Direction
 	i.Direction = direction
 	WriteMotorDirection(direction)
 }
