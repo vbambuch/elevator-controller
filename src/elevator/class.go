@@ -15,6 +15,7 @@ type Elevator struct {
 	OrderButton 	consts.ButtonEvent
 	StopButton  	bool
 	Obstruction 	bool
+	DoorLight 		bool
 }
 
 
@@ -52,4 +53,9 @@ func (i *Elevator) SetDirection(direction consts.MotorDirection)  {
 
 func (i *Elevator) SetStopButton(stop bool)  {
 	i.StopButton = stop
+}
+
+func (i *Elevator) SetDoorLight(light bool)  {
+	i.DoorLight = light
+	WriteDoorOpenLamp(light)
 }

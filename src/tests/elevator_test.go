@@ -8,6 +8,7 @@ import (
 	"elevator"
 	"fmt"
 	"helper"
+	"time"
 )
 
 /**
@@ -77,8 +78,8 @@ func zigZag(t *testing.T, infoChan <-chan elevator.Elevator, stopChan chan<- boo
 }
 
 func TestZigZag(t *testing.T) {
+	// TODO check if elevator is actually moving
 	stateInfoChan := elevator.Init()
-
 	stopChan := make(chan bool)
 
 	elevator.ElevatorState.SetDirection(C.MotorUP)
@@ -102,10 +103,27 @@ func elevatorCalls(stateInfoChan <-chan elevator.Elevator)  {
 
 
 func TestElevatorCalls(t *testing.T)  {
+/*
+	- get order from PollButton
+	- send elevator to correct direction
+	- stop it when elevator reaches its destination
+	- open door -> turn on the light
+	- wait for some time/for cab call
+	- turn off door light
+	-
+ */
+
+
 	stateInfoChan := elevator.Init()
-	stopChan := make(chan bool)
 
-	go elevatorCalls(stateInfoChan)
+	elevator.SendElevatorToFloor(2, stateInfoChan)
+	time.Sleep(2000 * time.Millisecond)
+	elevator.SendElevatorToFloor(3, stateInfoChan)
+	time.Sleep(2000 * time.Millisecond)
+	elevator.SendElevatorToFloor(0, stateInfoChan)
+	time.Sleep(2000 * time.Millisecond)
+	elevator.SendElevatorToFloor(3, stateInfoChan)
+	time.Sleep(2000 * time.Millisecond)
 
-	<- stopChan
+	return
 }

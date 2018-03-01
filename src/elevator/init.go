@@ -2,9 +2,9 @@ package elevator
 
 import (
 	"consts"
-	//"helper"
 	"fmt"
 	"reflect"
+	"time"
 )
 
 
@@ -18,8 +18,6 @@ func shareElevatorStatus(stateChan <-chan Elevator, changeChan chan<- Elevator) 
 			fmt.Printf("changed %+v\n", state)
 			prevState = state
 			changeChan <- state
-		} else {
-			//fmt.Printf("same %+v\n", state)
 		}
 	}
 }
@@ -48,7 +46,7 @@ func stateHandler(floorChan <- chan int, obstructChan, stopChan <-chan bool, but
 			ElevatorState.SetStopButton(stop)
 
 			for f := 0; f < consts.NumFloors; f++ {
-				for b := consts.ButtonType(0); b < 3; b++ {
+				for b := consts.ButtonUP; b < consts.ButtonCAB; b++ {
 					WriteButtonLamp(b, f, false)
 				}
 			}
@@ -57,19 +55,44 @@ func stateHandler(floorChan <- chan int, obstructChan, stopChan <-chan bool, but
 	}
 }
 
+func SendElevatorToFloor(floor int, changeChan <-chan Elevator) {
+	direction := consts.MotorUP
+
+	if ElevatorState.Floor > floor {
+		direction = consts.MotorDOWN
+	} else if ElevatorState.Floor == floor {
+		direction = consts.MotorSTOP
+	}
+
+	ElevatorState.SetDoorLight(false)
+	ElevatorState.SetDirection(direction)
+
+	for {
+		info := <-changeChan
+
+		if info.Floor == floor {
+			ElevatorState.SetDirection(consts.MotorSTOP)
+			ElevatorState.SetDoorLight(true)
+			return
+		}
+	}
+}
+
 func Init() (chan Elevator) {
 
 	InitIO()
 
 	// setup default ElevatorState properties
+	ElevatorState.Floor = -1
 	ElevatorState.PrevFloor = -1
+	ElevatorState.DoorLight = false
 
 	buttonsChan := make(chan consts.ButtonEvent)
 	floorChan := make(chan int)
 	obstructChan := make(chan bool)
 	stopChan := make(chan bool)
 	stateChan := make(chan Elevator)
-	changeChan := make(chan Elevator)
+	changeChan := make(chan Elevator, 2)
 
 	go PollButtons(buttonsChan)
 	go PollFloorSensor(floorChan)
@@ -79,5 +102,10 @@ func Init() (chan Elevator) {
 	go stateHandler(floorChan, obstructChan, stopChan, buttonsChan, stateChan)
 	go shareElevatorStatus(stateChan, changeChan)
 
+	// wait for initialization of elevator
+	for ElevatorState.Floor == -1 {
+		ElevatorState.SetDirection(consts.MotorUP)
+		time.Sleep(pollRate)
+	}
 	return changeChan
 }
