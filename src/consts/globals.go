@@ -2,23 +2,29 @@ package consts
 
 const MinFloor = 0
 const MaxFloor = 3
+const NumFloors = MaxFloor + 1
 
 const Address = "localhost"
 const Port = "15657"
 
 
+type MotorDirection int
 
-type elevator struct {
-	Status int
-	Floor int
-	AtFloor bool
-	OrderButton bool
-	StopButton bool
-	Obstruction bool
-}
+const (
+	MotorUP   MotorDirection = 1
+	MotorDOWN                = -1
+	MotorSTOP                = 0
+)
 
+type ButtonType int
 
-type Elevator struct {
-	Data elevator
-	Test elevator
+const (
+	ButtonUP   ButtonType = 0
+	ButtonDOWN            = 1
+	ButtonCAB             = 2
+)
+
+type ButtonEvent struct {
+	Floor  int
+	Button ButtonType
 }

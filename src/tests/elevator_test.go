@@ -3,95 +3,127 @@ package tests
 import (
 	C "consts"
 	"testing"
-	"bytes"
-	"helper"
-	"elevatorAPI"
-	//"time"
+	//"bytes"
+	//"helper"
+	"elevator"
 	"fmt"
+	"helper"
+	"time"
 )
 
 /**
  * Basic dumb test
  */
-type byteTable struct { a byte; b byte; c byte; d byte; r []byte }
+//type byteTable struct { a byte; b byte; c byte; d byte; r []byte }
 
-func TestGetInstr(t *testing.T)  {
-	table := []byteTable{
-		{C.MotorDirection, C.MotorUp, C.EmptyByte, C.EmptyByte, []byte{1, 100, 0, 0}},
-		{C.OrderButtonLight, C.CabButton, byte(3), C.TurnOn, []byte{2, 2, 3, 1}},
-	}
-
-	for _, value := range table {
-		instr := helper.GetInstruction(value.a, value.b, value.c, value.d)
-		if bytes.Compare(instr, value.r) != 0 {
-			t.Errorf("Incorrect instruction, got: %d, want: %d.", instr, value.r)
-		}
-	}
-}
+//func TestGetInstr(t *testing.T)  {
+//	table := []byteTable{
+//		{C.MotorDirection, C.MotorUp, C.EmptyByte, C.EmptyByte, []byte{1, 100, 0, 0}},
+//		{C.OrderButtonLight, C.CabButton, byte(3), C.TurnOn, []byte{2, 2, 3, 1}},
+//	}
+//
+//	for _, value := range table {
+//		instr := helper.GetInstruction(value.a, value.b, value.c, value.d)
+//		if bytes.Compare(instr, value.r) != 0 {
+//			t.Errorf("Incorrect instruction, got: %d, want: %d.", instr, value.r)
+//		}
+//	}
+//}
 
 /**
  * Basic elevator movement test
  */
-func zigZag(stateInfoChan <-chan C.Elevator, instrChan chan<- []byte, stateChan chan<- []byte) {
-	instrChan <- elevatorAPI.MotorUp(stateChan)
+func zigZag(t *testing.T, infoChan <-chan elevator.Elevator, stopChan chan<- bool) {
+	go helper.Timeout(150000, stopChan)
 
 	for {
-		info := <- stateInfoChan
+		info := <-infoChan
+		//fmt.Println("Got:", info)
 
-		fmt.Println("Got data:", info.Data)
-
-		if info.Data.AtFloor {
-			switch info.Data.Floor {
-			case C.MinFloor:
-				instrChan <- elevatorAPI.MotorUp(stateChan)
-			case C.MaxFloor:
-				instrChan <- elevatorAPI.MotorDown(stateChan)
+		switch elevator.ReadFloor() {
+		//switch info.Floor {
+		case C.MinFloor:
+			if info.Direction != C.MotorSTOP && info.PrevFloor != 0 {
+				t.Errorf("Motor should go 0, not %d", info.Direction)
+				stopChan <- true
 			}
-		}
-	}
-}
-
-func floorTesting(stateInfoChan <-chan C.Elevator, stopChan chan<- bool, t *testing.T)  {
-	//time.Sleep(10000 * time.Millisecond)
-	floor := -1
-
-	for {
-		info := <- stateInfoChan
-
-		fmt.Println("Got test:", info.Test)
-
-		if info.Test.AtFloor {
-			if floor != -1 {
-				switch floor {
-				case 0:
-					if info.Test.Status != C.MotorUp {
-						t.Errorf("Motor should go UP, not %d", info.Test.Status)
-						stopChan <- true
-					}
-				case 3:
-					if info.Test.Status != C.MotorDown {
-						t.Errorf("Motor should go DOWN, not %d", info.Test.Status)
-						stopChan <- true
-					}
-				}
-			} else {
-				floor = info.Test.Floor
+			if info.Floor != C.MinFloor {
+				t.Errorf("Indicator should be 0, not %d", info.Floor)
+				stopChan <- true
 			}
+			elevator.ElevatorState.SetDirection(C.MotorUP)
+		case 1:
+			if info.Floor != 1 {
+				t.Errorf("Indicator should be 1, not %d", info.Floor)
+				stopChan <- true
+			}
+		case 2:
+			if info.Floor != 2 {
+				t.Errorf("Indicator should be 2, not %d", info.Floor)
+				stopChan <- true
+			}
+		case C.MaxFloor:
+			if info.Direction != C.MotorSTOP && info.PrevFloor != 0 {
+				t.Errorf("Motor should go 0, not %d", info.Direction)
+				stopChan <- true
+			}
+			if info.Floor != C.MaxFloor {
+				t.Errorf("Indicator should be 3, not %d", info.Floor)
+				stopChan <- true
+			}
+			elevator.ElevatorState.SetDirection(C.MotorDOWN)
 		}
 	}
 
-	stopChan <- true
 }
 
 func TestZigZag(t *testing.T) {
-	stateChan, instrChan, stateInfoChan := elevatorAPI.Init()
+	// TODO check if elevator is actually moving
+	stateInfoChan := elevator.Init()
 	stopChan := make(chan bool)
 
-	go zigZag(stateInfoChan, instrChan, stateChan)
-	go floorTesting(stateInfoChan, stopChan, t)
+	elevator.ElevatorState.SetDirection(C.MotorUP)
+	go zigZag(t, stateInfoChan, stopChan)
 
-	//fmt.Println("Test started")
 	<- stopChan
 }
 
 
+/**
+ * Elevator calls testing
+ */
+func elevatorCalls(stateInfoChan <-chan elevator.Elevator)  {
+	for {
+		info := <- stateInfoChan
+		fmt.Printf("%+v\n", info)
+		//if info.AtFloor {
+		//}
+	}
+}
+
+
+func TestElevatorCalls(t *testing.T)  {
+/*
+	- get order from PollButton
+	- send elevator to correct direction
+	- stop it when elevator reaches its destination
+	- open door -> turn on the light
+	- wait for some time/for cab call
+	- turn off door light
+	-
+ */
+
+
+	stateInfoChan := elevator.Init()
+
+	elevator.SendElevatorToFloor(2, stateInfoChan)
+	time.Sleep(2000 * time.Millisecond)
+	elevator.SendElevatorToFloor(3, stateInfoChan)
+	time.Sleep(2000 * time.Millisecond)
+	elevator.SendElevatorToFloor(0, stateInfoChan)
+	time.Sleep(2000 * time.Millisecond)
+	elevator.SendElevatorToFloor(3, stateInfoChan)
+	time.Sleep(2000 * time.Millisecond)
+
+	return
+}
