@@ -34,41 +34,41 @@ import (
  * Basic elevator movement test
  */
 func zigZag(t *testing.T, infoChan <-chan elevator.Elevator, stopChan chan<- bool) {
-	go helper.Timeout(150000, stopChan)
+	go helper.Timeout(15000, stopChan)
 
 	for {
 		info := <-infoChan
 		//fmt.Println("Got:", info)
 
 		switch elevator.ReadFloor() {
-		//switch info.Floor {
+		//switch info.floor {
 		case C.MinFloor:
-			if info.Direction != C.MotorSTOP && info.PrevFloor != 0 {
-				t.Errorf("Motor should go 0, not %d", info.Direction)
+			if info.GetDirection() != C.MotorSTOP && info.GetPrevFloor() != 0 {
+				t.Errorf("Motor should go 0, not %d", info.GetDirection())
 				stopChan <- true
 			}
-			if info.Floor != C.MinFloor {
-				t.Errorf("Indicator should be 0, not %d", info.Floor)
+			if info.GetFloor() != C.MinFloor {
+				t.Errorf("Indicator should be 0, not %d", info.GetFloor())
 				stopChan <- true
 			}
 			elevator.ElevatorState.SetDirection(C.MotorUP)
 		case 1:
-			if info.Floor != 1 {
-				t.Errorf("Indicator should be 1, not %d", info.Floor)
+			if info.GetFloor() != 1 {
+				t.Errorf("Indicator should be 1, not %d", info.GetFloor())
 				stopChan <- true
 			}
 		case 2:
-			if info.Floor != 2 {
-				t.Errorf("Indicator should be 2, not %d", info.Floor)
+			if info.GetFloor() != 2 {
+				t.Errorf("Indicator should be 2, not %d", info.GetFloor())
 				stopChan <- true
 			}
 		case C.MaxFloor:
-			if info.Direction != C.MotorSTOP && info.PrevFloor != 0 {
-				t.Errorf("Motor should go 0, not %d", info.Direction)
+			if info.GetDirection() != C.MotorSTOP && info.GetPrevFloor() != 0 {
+				t.Errorf("Motor should go 0, not %d", info.GetDirection())
 				stopChan <- true
 			}
-			if info.Floor != C.MaxFloor {
-				t.Errorf("Indicator should be 3, not %d", info.Floor)
+			if info.GetFloor() != C.MaxFloor {
+				t.Errorf("Indicator should be 3, not %d", info.GetFloor())
 				stopChan <- true
 			}
 			elevator.ElevatorState.SetDirection(C.MotorDOWN)
@@ -110,7 +110,7 @@ func TestElevatorCalls(t *testing.T)  {
 	- open door -> turn on the light
 	- wait for some time/for cab call
 	- turn off door light
-	-
+	- send elevator to destination
  */
 
 

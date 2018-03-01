@@ -58,9 +58,9 @@ func stateHandler(floorChan <- chan int, obstructChan, stopChan <-chan bool, but
 func SendElevatorToFloor(floor int, changeChan <-chan Elevator) {
 	direction := consts.MotorUP
 
-	if ElevatorState.Floor > floor {
+	if ElevatorState.floor > floor {
 		direction = consts.MotorDOWN
-	} else if ElevatorState.Floor == floor {
+	} else if ElevatorState.floor == floor {
 		direction = consts.MotorSTOP
 	}
 
@@ -70,7 +70,7 @@ func SendElevatorToFloor(floor int, changeChan <-chan Elevator) {
 	for {
 		info := <-changeChan
 
-		if info.Floor == floor {
+		if info.floor == floor {
 			ElevatorState.SetDirection(consts.MotorSTOP)
 			ElevatorState.SetDoorLight(true)
 			return
@@ -81,11 +81,6 @@ func SendElevatorToFloor(floor int, changeChan <-chan Elevator) {
 func Init() (chan Elevator) {
 
 	InitIO()
-
-	// setup default ElevatorState properties
-	ElevatorState.Floor = -1
-	ElevatorState.PrevFloor = -1
-	ElevatorState.DoorLight = false
 
 	buttonsChan := make(chan consts.ButtonEvent)
 	floorChan := make(chan int)
@@ -103,7 +98,7 @@ func Init() (chan Elevator) {
 	go shareElevatorStatus(stateChan, changeChan)
 
 	// wait for initialization of elevator
-	for ElevatorState.Floor == -1 {
+	for ElevatorState.GetFloor() == -1 {
 		ElevatorState.SetDirection(consts.MotorUP)
 		time.Sleep(pollRate)
 	}
