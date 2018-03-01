@@ -76,6 +76,7 @@ func PollButtons(receiver chan<- consts.ButtonEvent) {
 			for b := consts.ButtonType(0); b < 3; b++ {
 				v := readButton(b, f)
 				if v != prev[f][b] && v != false {
+					fmt.Println("Poll buttons")
 					receiver <- consts.ButtonEvent{f, consts.ButtonType(b)}
 				}
 				prev[f][b] = v
@@ -122,10 +123,6 @@ func PollObstructionSwitch(receiver chan<- bool) {
 		prev = v
 	}
 }
-
-
-
-
 
 
 

@@ -62,6 +62,12 @@ func (i *Elevator) SetOrderButton(button consts.ButtonEvent) {
 	WriteButtonLamp(button.Button, button.Floor, true)
 }
 
+func (i *Elevator) ClearOrderButton() {
+	i.mux.Lock()
+	WriteButtonLamp(i.orderButton.Button, i.orderButton.Floor, false)
+	i.mux.Unlock()
+}
+
 func (i *Elevator) SetStopButton(stop bool)  {
 	i.mux.Lock()
 	i.stopButton = stop
