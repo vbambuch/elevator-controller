@@ -4,10 +4,11 @@ import (
 	"consts"
 	"fmt"
 	"time"
+	//"helper"
 )
 
 
-func stateHandler(floorChan <- chan int, obstructChan, stopChan <-chan bool, buttonsChan <- chan consts.ButtonEvent, stateChan chan Elevator)  {
+func stateHandler(floorChan <-chan int, obstructChan, stopChan <-chan bool, buttonsChan <-chan consts.ButtonEvent, stateChan chan<- Elevator, orderChan chan<- consts.ButtonEvent) {
 
 	for {
 		select {
@@ -15,7 +16,7 @@ func stateHandler(floorChan <- chan int, obstructChan, stopChan <-chan bool, but
 			fmt.Printf("%+v\n", button)
 			if button != ElevatorState.GetOrderButton() {
 				ElevatorState.SetOrderButton(button)
-				go SendElevatorToFloor(button.Floor, stateChan)
+				orderChan <- button
 			}
 
 		case floor := <-floorChan:
@@ -40,7 +41,7 @@ func stateHandler(floorChan <- chan int, obstructChan, stopChan <-chan bool, but
 
 				for f := 0; f < consts.NumFloors; f++ {
 					for b := consts.ButtonUP; b < consts.ButtonCAB; b++ {
-						WriteButtonLamp(b, f, false)
+						WriteButtonLamp(consts.ButtonType(b), f, false)
 					}
 				}
 			}
@@ -49,7 +50,36 @@ func stateHandler(floorChan <- chan int, obstructChan, stopChan <-chan bool, but
 	}
 }
 
-func SendElevatorToFloor(floor int, changeChan <-chan Elevator) {
+func orderHandler(orderChan <-chan consts.ButtonEvent, stateChan <-chan Elevator)  {
+	ready := true
+	readyChan := make(chan bool)
+
+	for {
+		select {
+		case ready = <-readyChan:
+		case button := <- orderChan:
+			if ready {
+				fmt.Printf("Ready %+v\n", button)
+				go SendElevatorToFloor(button.Floor, stateChan, readyChan)
+				ready = false
+			} else {
+				fmt.Printf("Pushed to queue %+v\n", button)
+				ElevatorState.GetQueue().Push(button)
+			}
+		default:
+			if ElevatorState.GetQueue().Len() != 0 && ready {
+				// pop order from queue
+				queueOrder := ElevatorState.GetQueue().Pop().(consts.ButtonEvent)
+				fmt.Printf("Pop from queue %+v\n", queueOrder)
+				go SendElevatorToFloor(queueOrder.Floor, stateChan, readyChan)
+				ready = false
+			}
+		}
+
+	}
+}
+
+func SendElevatorToFloor(floor int, stateChan <-chan Elevator, readyChan chan<- bool) {
 	direction := consts.MotorUP
 
 	if ElevatorState.floor > floor {
@@ -62,12 +92,13 @@ func SendElevatorToFloor(floor int, changeChan <-chan Elevator) {
 	ElevatorState.SetDirection(direction)
 
 	for {
-		info := <-changeChan
+		info := <-stateChan
 
 		if info.floor == floor {
 			ElevatorState.SetDirection(consts.MotorSTOP)
 			ElevatorState.SetDoorLight(true)
 			ElevatorState.ClearOrderButton()
+			readyChan <- true
 			return
 		}
 	}
@@ -81,6 +112,7 @@ func Init() (chan Elevator) {
 	floorChan := make(chan int)
 	obstructChan := make(chan bool)
 	stopChan := make(chan bool)
+	orderChan := make(chan consts.ButtonEvent)
 	stateChan := make(chan Elevator, 4)
 
 	go PollButtons(buttonsChan)
@@ -88,7 +120,8 @@ func Init() (chan Elevator) {
 	go PollObstructionSwitch(obstructChan)
 	go PollStopButton(stopChan)
 
-	go stateHandler(floorChan, obstructChan, stopChan, buttonsChan, stateChan)
+	go stateHandler(floorChan, obstructChan, stopChan, buttonsChan, stateChan, orderChan)
+	go orderHandler(orderChan, stateChan)
 
 	// wait for initialization of elevator
 	for ElevatorState.GetFloor() == -1 {

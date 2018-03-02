@@ -4,6 +4,7 @@ import (
 	"consts"
 	//"fmt"
 	"sync"
+	"helper"
 )
 
 // ElevatorState constructor
@@ -16,6 +17,7 @@ var ElevatorState = Elevator{
 	false,
 	false,
 	false,
+	helper.NewQueue(),
 	sync.Mutex{},
 }
 
@@ -28,6 +30,7 @@ type Elevator struct {
 	stopButton    bool
 	obstruction   bool
 	doorLight     bool
+	orderQueue	  *helper.Queue
 	mux           sync.Mutex
 }
 
@@ -136,4 +139,9 @@ func (i *Elevator) GetDoorLight() (bool) {
 	i.mux.Lock()
 	defer i.mux.Unlock()
 	return i.doorLight
+}
+func (i *Elevator) GetQueue() (*helper.Queue) {
+	i.mux.Lock()
+	defer i.mux.Unlock()
+	return i.orderQueue
 }

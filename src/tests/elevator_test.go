@@ -12,25 +12,6 @@ import (
 )
 
 /**
- * Basic dumb test
- */
-//type byteTable struct { a byte; b byte; c byte; d byte; r []byte }
-
-//func TestGetInstr(t *testing.T)  {
-//	table := []byteTable{
-//		{C.MotorDirection, C.MotorUp, C.EmptyByte, C.EmptyByte, []byte{1, 100, 0, 0}},
-//		{C.OrderButtonLight, C.CabButton, byte(3), C.TurnOn, []byte{2, 2, 3, 1}},
-//	}
-//
-//	for _, value := range table {
-//		instr := helper.GetInstruction(value.a, value.b, value.c, value.d)
-//		if bytes.Compare(instr, value.r) != 0 {
-//			t.Errorf("Incorrect instruction, got: %d, want: %d.", instr, value.r)
-//		}
-//	}
-//}
-
-/**
  * Basic elevator movement test
  */
 func zigZag(t *testing.T, infoChan <-chan elevator.Elevator, stopChan chan<- bool) {
@@ -108,21 +89,31 @@ func TestElevatorCalls(t *testing.T)  {
 	- send elevator to correct direction
 	- stop it when elevator reaches its destination
 	- open door -> turn on the light
-	- wait for some time/for cab call
+	- wait for some time OR cab call
 	- turn off door light
 	- send elevator to destination
+	- open door
+	- wait for some time OR hall call OR cab call
  */
 
-
+	readyChan := make(chan bool)
 	stateInfoChan := elevator.Init()
 
-	elevator.SendElevatorToFloor(2, stateInfoChan)
+	elevator.ElevatorState.SetOrderButton(C.ButtonEvent{2, C.ButtonType(1)})
+	go elevator.SendElevatorToFloor(2, stateInfoChan, readyChan)
+	<- readyChan
 	time.Sleep(2000 * time.Millisecond)
-	elevator.SendElevatorToFloor(3, stateInfoChan)
+	elevator.ElevatorState.SetOrderButton(C.ButtonEvent{3, C.ButtonType(1)})
+	go elevator.SendElevatorToFloor(3, stateInfoChan, readyChan)
+	<- readyChan
 	time.Sleep(2000 * time.Millisecond)
-	elevator.SendElevatorToFloor(0, stateInfoChan)
+	elevator.ElevatorState.SetOrderButton(C.ButtonEvent{0, C.ButtonType(0)})
+	go elevator.SendElevatorToFloor(0, stateInfoChan, readyChan)
+	<- readyChan
 	time.Sleep(2000 * time.Millisecond)
-	elevator.SendElevatorToFloor(3, stateInfoChan)
+	elevator.ElevatorState.SetOrderButton(C.ButtonEvent{3, C.ButtonType(1)})
+	go elevator.SendElevatorToFloor(3, stateInfoChan, readyChan)
+	<- readyChan
 	time.Sleep(2000 * time.Millisecond)
 
 	return
