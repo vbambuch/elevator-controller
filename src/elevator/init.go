@@ -51,18 +51,22 @@ func stateHandler(floorChan <-chan int, obstructChan, stopChan <-chan bool, butt
 }
 
 func orderHandler(orderChan <-chan consts.ButtonEvent, stateChan <-chan Elevator)  {
-	ready := true
-	readyChan := make(chan bool)
+	var timeout = time.NewTimer(0)
+	ready := false
+	onFloorChan := make(chan bool)
 
 	for {
 		select {
-		case ready = <-readyChan:
-			// if during 2s no cab call, process queue or new hall orders
-		case order := <-orderChan:
+		case <- onFloorChan:
+			timeout.Reset(3 * time.Second)
+		case <- timeout.C:
+			ElevatorState.SetDoorLight(false)
+			ready = true
+		case order := <- orderChan:
 			if order.Button == consts.ButtonCAB {
 				if ready {
 					fmt.Printf("Ready for cab %d\n", order.Floor)
-					go SendElevatorToFloor(order, stateChan, readyChan)
+					go SendElevatorToFloor(order, stateChan, onFloorChan)
 					ready = false
 				} else {
 					fmt.Printf("Pushed to cab queue %+v\n", order)
@@ -71,7 +75,7 @@ func orderHandler(orderChan <-chan consts.ButtonEvent, stateChan <-chan Elevator
 			} else {
 				if ready {
 					fmt.Printf("Ready for hall %d\n", order.Floor)
-					go SendElevatorToFloor(order, stateChan, readyChan)
+					go SendElevatorToFloor(order, stateChan, onFloorChan)
 					ready = false
 				} else {
 					fmt.Printf("Pushed to hall queue %+v\n", order)
@@ -81,17 +85,17 @@ func orderHandler(orderChan <-chan consts.ButtonEvent, stateChan <-chan Elevator
 		default:
 			if ElevatorState.GetQueue(consts.HallQueue).Len() != 0 &&
 			   ElevatorState.GetQueue(consts.CabQueue).Len() == 0 &&
-			   ready {
+				ready {
 				// pop order from hall queue
 				queueOrder := ElevatorState.GetQueue(consts.HallQueue).Pop().(consts.ButtonEvent)
 				fmt.Printf("Pop from hall queue %+v\n", queueOrder)
-				go SendElevatorToFloor(queueOrder, stateChan, readyChan)
+				go SendElevatorToFloor(queueOrder, stateChan, onFloorChan)
 				ready = false
 			} else if ElevatorState.GetQueue(consts.CabQueue).Len() != 0 && ready {
 				// pop order from cab queue
 				queueOrder := ElevatorState.GetQueue(consts.CabQueue).Pop().(consts.ButtonEvent)
 				fmt.Printf("Pop from cab queue %+v\n", queueOrder)
-				go SendElevatorToFloor(queueOrder, stateChan, readyChan)
+				go SendElevatorToFloor(queueOrder, stateChan, onFloorChan)
 				ready = false
 			}
 		}
@@ -99,28 +103,32 @@ func orderHandler(orderChan <-chan consts.ButtonEvent, stateChan <-chan Elevator
 	}
 }
 
-func SendElevatorToFloor(order consts.ButtonEvent, stateChan <-chan Elevator, readyChan chan<- bool) {
+func handleReachedDestination(order consts.ButtonEvent)  {
+	ElevatorState.SetDirection(consts.MotorSTOP)
+	ElevatorState.SetDoorLight(true)
+	ElevatorState.ClearOrderButton(order)
+}
+
+func SendElevatorToFloor(order consts.ButtonEvent, stateChan <-chan Elevator, onFloorChan chan<- bool) {
 	direction := consts.MotorUP
-	doorLight := false
 
 	if ElevatorState.floor > order.Floor {
 		direction = consts.MotorDOWN
 	} else if ElevatorState.floor == order.Floor {
-		direction = consts.MotorSTOP
-		doorLight = true
+		handleReachedDestination(order)
+		onFloorChan <- true
+		return
 	}
 
-	ElevatorState.SetDoorLight(doorLight)
+	ElevatorState.SetDoorLight(false)
 	ElevatorState.SetDirection(direction)
 
 	for {
 		info := <-stateChan
 
 		if info.floor == order.Floor {
-			ElevatorState.SetDirection(consts.MotorSTOP)
-			ElevatorState.SetDoorLight(true)
-			ElevatorState.ClearOrderButton(order)
-			readyChan <- true
+			handleReachedDestination(order)
+			onFloorChan <- true
 			return
 		}
 	}
