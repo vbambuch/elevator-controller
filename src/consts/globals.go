@@ -28,3 +28,10 @@ type ButtonEvent struct {
 	Floor  int
 	Button ButtonType
 }
+
+type QueueType int
+
+const (
+	CabQueue 	QueueType = 0
+	HallQueue 			  = 1
+)

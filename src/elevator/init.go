@@ -13,14 +13,14 @@ func stateHandler(floorChan <-chan int, obstructChan, stopChan <-chan bool, butt
 	for {
 		select {
 		case button := <-buttonsChan:
-			fmt.Printf("%+v\n", button)
+			//fmt.Printf("%+v\n", button)
 			if button != ElevatorState.GetOrderButton() {
 				ElevatorState.SetOrderButton(button)
 				orderChan <- button
 			}
 
 		case floor := <-floorChan:
-			fmt.Printf("floor: %+v\n", floor)
+			//fmt.Printf("floor: %+v\n", floor)
 			if floor != ElevatorState.GetFloor() {
 				if floor == consts.MinFloor || floor == consts.MaxFloor {
 					ElevatorState.SetDirection(consts.MotorSTOP)
@@ -29,13 +29,13 @@ func stateHandler(floorChan <-chan int, obstructChan, stopChan <-chan bool, butt
 			}
 
 		case obstruct := <-obstructChan:
-			fmt.Printf("%+v\n", obstruct)
+			//fmt.Printf("%+v\n", obstruct)
 			if obstruct != ElevatorState.GetObstruction() {
 				ElevatorState.SetObstruction(obstruct)
 			}
 
 		case stop := <-stopChan:
-			fmt.Printf("%+v\n", stop)
+			//fmt.Printf("%+v\n", stop)
 			if stop != ElevatorState.GetStopButton() {
 				ElevatorState.SetStopButton(stop)
 
@@ -57,21 +57,41 @@ func orderHandler(orderChan <-chan consts.ButtonEvent, stateChan <-chan Elevator
 	for {
 		select {
 		case ready = <-readyChan:
-		case button := <- orderChan:
-			if ready {
-				fmt.Printf("Ready %+v\n", button)
-				go SendElevatorToFloor(button.Floor, stateChan, readyChan)
-				ready = false
+			// if during 2s no cab call, process queue or new hall orders
+		case order := <-orderChan:
+			if order.Button == consts.ButtonCAB {
+				if ready {
+					fmt.Printf("Ready for cab %d\n", order.Floor)
+					go SendElevatorToFloor(order, stateChan, readyChan)
+					ready = false
+				} else {
+					fmt.Printf("Pushed to cab queue %+v\n", order)
+					ElevatorState.GetQueue(consts.CabQueue).Push(order)
+				}
 			} else {
-				fmt.Printf("Pushed to queue %+v\n", button)
-				ElevatorState.GetQueue().Push(button)
+				if ready {
+					fmt.Printf("Ready for hall %d\n", order.Floor)
+					go SendElevatorToFloor(order, stateChan, readyChan)
+					ready = false
+				} else {
+					fmt.Printf("Pushed to hall queue %+v\n", order)
+					ElevatorState.GetQueue(consts.HallQueue).Push(order)
+				}
 			}
 		default:
-			if ElevatorState.GetQueue().Len() != 0 && ready {
-				// pop order from queue
-				queueOrder := ElevatorState.GetQueue().Pop().(consts.ButtonEvent)
-				fmt.Printf("Pop from queue %+v\n", queueOrder)
-				go SendElevatorToFloor(queueOrder.Floor, stateChan, readyChan)
+			if ElevatorState.GetQueue(consts.HallQueue).Len() != 0 &&
+			   ElevatorState.GetQueue(consts.CabQueue).Len() == 0 &&
+			   ready {
+				// pop order from hall queue
+				queueOrder := ElevatorState.GetQueue(consts.HallQueue).Pop().(consts.ButtonEvent)
+				fmt.Printf("Pop from hall queue %+v\n", queueOrder)
+				go SendElevatorToFloor(queueOrder, stateChan, readyChan)
+				ready = false
+			} else if ElevatorState.GetQueue(consts.CabQueue).Len() != 0 && ready {
+				// pop order from cab queue
+				queueOrder := ElevatorState.GetQueue(consts.CabQueue).Pop().(consts.ButtonEvent)
+				fmt.Printf("Pop from cab queue %+v\n", queueOrder)
+				go SendElevatorToFloor(queueOrder, stateChan, readyChan)
 				ready = false
 			}
 		}
@@ -79,25 +99,27 @@ func orderHandler(orderChan <-chan consts.ButtonEvent, stateChan <-chan Elevator
 	}
 }
 
-func SendElevatorToFloor(floor int, stateChan <-chan Elevator, readyChan chan<- bool) {
+func SendElevatorToFloor(order consts.ButtonEvent, stateChan <-chan Elevator, readyChan chan<- bool) {
 	direction := consts.MotorUP
+	doorLight := false
 
-	if ElevatorState.floor > floor {
+	if ElevatorState.floor > order.Floor {
 		direction = consts.MotorDOWN
-	} else if ElevatorState.floor == floor {
+	} else if ElevatorState.floor == order.Floor {
 		direction = consts.MotorSTOP
+		doorLight = true
 	}
 
-	ElevatorState.SetDoorLight(false)
+	ElevatorState.SetDoorLight(doorLight)
 	ElevatorState.SetDirection(direction)
 
 	for {
 		info := <-stateChan
 
-		if info.floor == floor {
+		if info.floor == order.Floor {
 			ElevatorState.SetDirection(consts.MotorSTOP)
 			ElevatorState.SetDoorLight(true)
-			ElevatorState.ClearOrderButton()
+			ElevatorState.ClearOrderButton(order)
 			readyChan <- true
 			return
 		}

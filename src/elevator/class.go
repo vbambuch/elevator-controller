@@ -5,6 +5,7 @@ import (
 	//"fmt"
 	"sync"
 	"helper"
+	//"fmt"
 )
 
 // ElevatorState constructor
@@ -18,6 +19,7 @@ var ElevatorState = Elevator{
 	false,
 	false,
 	helper.NewQueue(),
+	helper.NewQueue(),
 	sync.Mutex{},
 }
 
@@ -30,7 +32,8 @@ type Elevator struct {
 	stopButton    bool
 	obstruction   bool
 	doorLight     bool
-	orderQueue	  *helper.Queue
+	hallQueue     *helper.Queue
+	cabQueue      *helper.Queue
 	mux           sync.Mutex
 }
 
@@ -65,10 +68,8 @@ func (i *Elevator) SetOrderButton(button consts.ButtonEvent) {
 	WriteButtonLamp(button.Button, button.Floor, true)
 }
 
-func (i *Elevator) ClearOrderButton() {
-	i.mux.Lock()
-	WriteButtonLamp(i.orderButton.Button, i.orderButton.Floor, false)
-	i.mux.Unlock()
+func (i *Elevator) ClearOrderButton(order consts.ButtonEvent) {
+	WriteButtonLamp(order.Button, order.Floor, false)
 }
 
 func (i *Elevator) SetStopButton(stop bool)  {
@@ -140,8 +141,12 @@ func (i *Elevator) GetDoorLight() (bool) {
 	defer i.mux.Unlock()
 	return i.doorLight
 }
-func (i *Elevator) GetQueue() (*helper.Queue) {
+func (i *Elevator) GetQueue(qt consts.QueueType) (*helper.Queue) {
 	i.mux.Lock()
 	defer i.mux.Unlock()
-	return i.orderQueue
+	queue := i.hallQueue
+	if qt == consts.CabQueue {
+		queue = i.cabQueue
+	}
+	return queue
 }

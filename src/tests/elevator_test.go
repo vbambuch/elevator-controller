@@ -76,6 +76,14 @@ func TestZigZag(t *testing.T) {
 /**
  * Elevator calls testing
  */
+func makeOrder(floor int, bt C.ButtonType, stateInfoChan chan elevator.Elevator, readyChan chan bool)  {
+	order := C.ButtonEvent{Floor: floor, Button: bt}
+	elevator.ElevatorState.SetOrderButton(order)
+	go elevator.SendElevatorToFloor(order, stateInfoChan, readyChan)
+	<- readyChan
+	time.Sleep(2000 * time.Millisecond)
+}
+
 func TestElevatorCalls(t *testing.T)  {
 /*
 	- get order from PollButton
@@ -92,22 +100,10 @@ func TestElevatorCalls(t *testing.T)  {
 	readyChan := make(chan bool)
 	stateInfoChan := elevator.Init()
 
-	elevator.ElevatorState.SetOrderButton(C.ButtonEvent{2, C.ButtonType(1)})
-	go elevator.SendElevatorToFloor(2, stateInfoChan, readyChan)
-	<- readyChan
-	time.Sleep(2000 * time.Millisecond)
-	elevator.ElevatorState.SetOrderButton(C.ButtonEvent{3, C.ButtonType(1)})
-	go elevator.SendElevatorToFloor(3, stateInfoChan, readyChan)
-	<- readyChan
-	time.Sleep(2000 * time.Millisecond)
-	elevator.ElevatorState.SetOrderButton(C.ButtonEvent{0, C.ButtonType(0)})
-	go elevator.SendElevatorToFloor(0, stateInfoChan, readyChan)
-	<- readyChan
-	time.Sleep(2000 * time.Millisecond)
-	elevator.ElevatorState.SetOrderButton(C.ButtonEvent{3, C.ButtonType(1)})
-	go elevator.SendElevatorToFloor(3, stateInfoChan, readyChan)
-	<- readyChan
-	time.Sleep(2000 * time.Millisecond)
+	makeOrder(2, C.ButtonDOWN, stateInfoChan, readyChan)
+	makeOrder(3, C.ButtonDOWN, stateInfoChan, readyChan)
+	makeOrder(0, C.ButtonUP, stateInfoChan, readyChan)
+	makeOrder(3, C.ButtonDOWN, stateInfoChan, readyChan)
 
 	return
 }
