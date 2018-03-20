@@ -7,7 +7,8 @@ const NumFloors = MaxFloor + 1
 const Address = "localhost"
 const Port = "15657"
 
-
+// Elevator consts
+const DefaultValue = -1
 type MotorDirection int
 
 const (
@@ -35,3 +36,24 @@ const (
 	CabQueue 	QueueType = 0
 	HallQueue 			  = 1
 )
+
+type Role int
+
+const (
+	Master	Role = 1
+	Backup		 = 0
+	Slave 		 = -1
+)
+
+// Error detection
+type ErrorCode int
+
+const (
+	MasterFailed	ErrorCode = 1
+	BackupFailed			  = 2
+	SlaveFailed				  = 3
+)
+
+type ElevatorError struct {
+	Code ErrorCode
+}
