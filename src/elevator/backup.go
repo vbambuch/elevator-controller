@@ -14,6 +14,6 @@ import (
  * -> became Master if prev Master failed
  * do same things as Slave
  */
-func StartBackup(orderChan <-chan consts.ButtonEvent, finish <-chan bool, masterConn *net.UDPConn) {
+func StartBackup(orderChan <-chan consts.ButtonEvent, masterConn *net.UDPConn) {
 
 }

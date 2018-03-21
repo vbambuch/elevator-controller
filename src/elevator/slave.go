@@ -20,10 +20,10 @@ type Slave struct {
  * send orders to Master
  * receive requests from Master
  */
-func StartSlave(orderChan <-chan consts.ButtonEvent, finish <-chan bool, masterConn *net.UDPConn) {
+func StartSlave(orderChan <-chan consts.ButtonEvent, masterConn *net.UDPConn) {
 	ElevatorState.SetMasterConn(masterConn)
 
-	go ElevatorState.periodicNotifications(finish)
+	go ElevatorState.PeriodicNotifications()
 }
 
 

@@ -13,28 +13,37 @@ func roleDecision()  {
 }
 
 
+func startCommonProcedures(receivedCabChan <-chan consts.ButtonEvent, sendHallChan <-chan consts.ButtonEvent)  {
+	receivedHallChan := make(chan consts.ButtonEvent)
+
+	go elevator.ElevatorState.PeriodicNotifications()
+	go elevator.ElevatorState.HallOrderNotifications(sendHallChan)
+	go elevator.ElevatorState.ListenFromMaster(receivedHallChan)
+	go elevator.ElevatorState.OrderHandler(receivedCabChan, receivedHallChan)
+}
+
 func roleChangeHandler(orderChan <-chan consts.ButtonEvent, newRoleChan <-chan bool)  {
-	started := false
-	finish := make(chan bool)
+	//started := false
+	//finish := make(chan bool)
 
 	for {
 		<- newRoleChan
-		if started {
-			finish <- true
-		}
-		started = true
+		//if started {
+		//	finish <- true
+		//}
+		//started = true
 		masterConn := network.GetMasterConn()
 		listenConn := network.GetListenConn()
 		switch elevator.ElevatorState.GetRole() {
 		case consts.Master:
 			fmt.Println("It's master")
-			go elevator.StartMaster(orderChan, finish, masterConn, listenConn)
+			go elevator.StartMaster(masterConn, listenConn)
 		case consts.Backup:
 			fmt.Println("It's backup")
-			go elevator.StartBackup(orderChan, finish, masterConn)
+			go elevator.StartBackup(orderChan, masterConn)
 		case consts.Slave:
 			fmt.Println("It's slave")
-			go elevator.StartSlave(orderChan, finish, masterConn)
+			go elevator.StartSlave(orderChan, masterConn)
 		}
 	}
 }
@@ -76,12 +85,13 @@ func main() {
 
 
 	//elevator.Init(stateChan, orderChan)
+	cabButtonChan, hallButtonChan := elevator.Init()
 	network.Initialize(outgoingMsg, incomingMsg)
-	elevator.Init(orderChan)
 
 	// start error detection
-	go network.ErrorDetection(errorChan)
+	//go network.ErrorDetection(errorChan)
 	go errorHandler(errorChan, newRoleChan)
+	go startCommonProcedures(cabButtonChan, hallButtonChan, )
 	go roleChangeHandler(orderChan, newRoleChan)
 
 	newRoleChan <- true

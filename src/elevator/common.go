@@ -26,7 +26,7 @@ var ElevatorState = Elevator {
 	false,
 	false,
 	//helper.NewQueue(),
-	//helper.NewQueue(),
+	consts.NewQueue(),
 	sync.Mutex{},
 	consts.Slave,
 	nil,
@@ -37,12 +37,12 @@ type Elevator struct {
 	prevDirection consts.MotorDirection
 	floor         int
 	prevFloor     int
-	orderButton   consts.ButtonEvent
+	hallOrder     consts.ButtonEvent
 	stopButton    bool
 	obstruction   bool
 	doorLight     bool
 	//hallQueue     *consts.Queue
-	//cabQueue      *helper.Queue
+	cabQueue      *consts.Queue
 	mux           sync.Mutex
 	role 		  consts.Role
 	masterConn	  *net.UDPConn
@@ -53,52 +53,57 @@ type Notification []byte
 type notificationCode int
 
 const (
-	PeriodicNotify notificationCode = 0
-	OrderNotify                     = 1
+	PeriodicMsg  notificationCode = 0
+	HallOrderMsg                  = 1
 )
 
 type NotificationData struct {
-	Code        notificationCode
-	Floor       int
-	Direction   consts.MotorDirection
-	OrderButton consts.ButtonEvent
-	//CabQueue		*helper.Queue
+	Code      notificationCode
+	Floor     int
+	Direction consts.MotorDirection
+	HallOrder consts.ButtonEvent
+	CabQueue  *consts.Queue
 }
 
 
 /**
  * Common functions
  */
-func (e *Elevator) sendToMaster(data Notification) {
+func (e *Elevator) sendToMaster(data Notification) bool {
 	e.mux.Lock()
 	defer e.mux.Unlock()
-	e.masterConn.Write(data)
-}
-
-func (e *Elevator) periodicNotifications(finish <-chan bool) {
-	for {
-		fmt.Println("--> periodic notification")
-		data := e.getNotification(PeriodicNotify)
-		e.sendToMaster(data)
-		time.Sleep(2 * time.Second)
+	if e.masterConn != nil {
+		e.masterConn.Write(data) // TODO change masterConn when Master will change
+		return true
 	}
-	<- finish
+	return false
 }
 
-func (e *Elevator) orderNotifications(orderChan <-chan consts.ButtonEvent)  {
+func (e *Elevator) PeriodicNotifications() {
 	for {
-		order := <- orderChan
-		fmt.Println("--> order", order)
-		data := e.getNotification(OrderNotify)
-		time.Sleep(2 * time.Second)
-		e.sendToMaster(data)
+		data := e.getNotification(PeriodicMsg)
+		if e.sendToMaster(data) {
+			fmt.Println("[slave] -> periodic")
+		}
+		time.Sleep(20 * time.Second)
 	}
 }
 
-func (e *Elevator) listenFromMaster()  {
+func (e *Elevator) HallOrderNotifications(sendHallChan <-chan consts.ButtonEvent)  {
+	for {
+		order := <-sendHallChan
+		data := e.getNotification(HallOrderMsg)
+		if e.sendToMaster(data) {
+	 		fmt.Println("[slave] -> hall order:", order)
+		}
+	}
+}
+
+func (e *Elevator) ListenFromMaster(receivedHallChan chan<- consts.ButtonEvent) {
 	conn := network.GetSlaveTestListenConn()
 	var order consts.ButtonEvent //TODO change to more general
 	buffer := make([]byte, 8192)
+	//receivedOrder := make(chan consts.ButtonEvent)
 
 	for {
 		n, err := conn.Read(buffer[0:])
@@ -116,10 +121,85 @@ func (e *Elevator) listenFromMaster()  {
 				log.Fatal(err2)
 			}
 
-			fmt.Println("received from Master:", order)
+			fmt.Println("[slave] <- hall order:", order)
+			receivedHallChan <- order
 		}
 	}
 }
+
+func (e *Elevator) OrderHandler(cabButtonChan <-chan consts.ButtonEvent, hallButtonChan <-chan consts.ButtonEvent)  {
+	var timeout = time.NewTimer(0)
+	ready := false
+	onFloorChan := make(chan bool)
+	//floorChan := make(chan int)
+
+	for {
+		select {
+		case <- onFloorChan:
+			timeout.Reset(3 * time.Second)
+		case <- timeout.C:
+			fmt.Println("Elevator ready")
+			ElevatorState.SetDoorLight(false)
+			ready = true
+		case cabOrder := <- cabButtonChan:
+			if ready {
+				fmt.Printf("Ready for cab %d\n", cabOrder.Floor)
+				go SendElevatorToFloor(cabOrder, onFloorChan)
+				ready = false
+			} else {
+				fmt.Printf("Pushed to cab queue %+v\n", cabOrder)
+				ElevatorState.GetQueue().Push(cabOrder)
+			}
+
+		case hallOrder := <- hallButtonChan:
+			if ready {
+				fmt.Printf("Ready for hall %d\n", hallOrder.Floor)
+				go SendElevatorToFloor(hallOrder, onFloorChan)
+				ready = false
+			} else {
+				fmt.Printf("Pushed to hall queue %+v\n", hallOrder)
+				//ElevatorState.GetQueue(consts.HallQueue).Push(order)
+			}
+
+		//case state := <-orderChan:
+		//	fmt.Println("New state")
+		//
+		//
+		//	if order.Button != consts.DefaultValue {
+		//		fmt.Println("not default")
+		//
+		//		floor := state.GetFloor()
+		//		floorChan <- floor
+		//		fmt.Println("after")
+		//
+		//	}
+
+
+		default:
+			//if ElevatorState.GetQueue(consts.HallQueue).Len() != 0 &&
+			//	ElevatorState.GetQueue(consts.CabQueue).Len() == 0 &&
+			//	ready {
+			//	// pop order from hall queue
+			//	queueOrder := ElevatorState.GetQueue(consts.HallQueue).Pop().(consts.ButtonEvent)
+			//	fmt.Printf("Pop from hall queue %+v\n", queueOrder)
+			//	go SendElevatorToFloor(queueOrder, floorChan, onFloorChan)
+			//	ready = false
+
+			if ElevatorState.GetQueue().Len() != 0 && ready {
+				// pop order from cab queue
+				queueOrder := ElevatorState.GetQueue().Pop().(consts.ButtonEvent)
+				fmt.Printf("Pop from cab queue %+v\n", queueOrder)
+				go SendElevatorToFloor(queueOrder, onFloorChan)
+				ready = false
+			}
+		}
+
+	}
+}
+
+
+
+
 
 /**
  * Bunch of setters.
@@ -147,7 +227,7 @@ func (e *Elevator) SetFloorIndicator(floor int) {
 
 func (e *Elevator) SetOrderButton(button consts.ButtonEvent) {
 	e.mux.Lock()
-	e.orderButton = button
+	//e.hallOrder = button
 	e.mux.Unlock()
 	WriteButtonLamp(button.Button, button.Floor, true)
 }
@@ -193,6 +273,8 @@ func (e *Elevator) SetMasterConn(conn *net.UDPConn) {
 	e.masterConn = conn
 }
 
+
+
 /**
  * Bunch of getters
  */
@@ -216,11 +298,11 @@ func (e *Elevator) GetPrevFloor() int {
 	defer e.mux.Unlock()
 	return e.prevFloor
 }
-func (e *Elevator) GetOrderButton() consts.ButtonEvent {
-	e.mux.Lock()
-	defer e.mux.Unlock()
-	return e.orderButton
-}
+//func (e *Elevator) GetOrderButton() consts.ButtonEvent {
+//	e.mux.Lock()
+//	defer e.mux.Unlock()
+//	return e.hallOrder
+//}
 func (e *Elevator) GetStopButton() bool {
 	e.mux.Lock()
 	defer e.mux.Unlock()
@@ -246,6 +328,12 @@ func (e *Elevator) GetDoorLight() bool {
 //	return queue
 //}
 
+func (e *Elevator) GetQueue() *consts.Queue {
+	e.mux.Lock()
+	defer e.mux.Unlock()
+	return e.cabQueue
+}
+
 func (e *Elevator) GetRole() (consts.Role) {
 	e.mux.Lock()
 	defer e.mux.Unlock()
@@ -265,7 +353,8 @@ func (e *Elevator) getNotification(code notificationCode) (Notification) {
 		code,
 		e.floor,
 		e.direction,
-		e.orderButton,
+		e.hallOrder,
+		nil,
 	}
 
 	//notification := NotificationData{e.floor, e.direction, e.cabQueue}
