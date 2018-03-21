@@ -9,18 +9,25 @@ import (
 
 
 //func stateHandler(floorChan <-chan int, obstructChan, stopChan <-chan bool, buttonsChan <-chan consts.ButtonEvent, stateChan chan<- Elevator, orderChan chan<- consts.ButtonEvent) {
-func stateHandler(floorChan <-chan int, obstructChan, stopChan <-chan bool, buttonsChan <-chan consts.ButtonEvent, orderChan chan<- consts.ButtonEvent) {
+func stateHandler(floorChan <-chan int, obstructChan, stopChan <-chan bool, buttonsChan <-chan consts.ButtonEvent, cabButtonChan chan<- consts.ButtonEvent, hallButtonChan chan<- consts.ButtonEvent) {
 	changed := false
+
 
 	for {
 		select {
 		case button := <-buttonsChan:
 			//fmt.Printf("%+v\n", button)
-			if button != ElevatorState.GetOrderButton() {
-				ElevatorState.SetOrderButton(button) // prevent order button spam
-				orderChan <- button
-				changed = true
+			if button.Button == consts.ButtonCAB {
+				cabButtonChan <- button
+			} else {
+				hallButtonChan <- button
 			}
+
+			//if button != ElevatorState.GetOrderButton() {
+			//	ElevatorState.SetOrderButton(button) // prevent order button spam
+			//	orderChan <- button
+			//	changed = true
+			//}
 
 		case floor := <-floorChan:
 			fmt.Printf("floor: %+v\n", floor)
@@ -67,7 +74,7 @@ func handleReachedDestination(order consts.ButtonEvent)  {
 	ElevatorState.ClearOrderButton(order)
 }
 
-func SendElevatorToFloor(order consts.ButtonEvent, floorChan <-chan int, onFloorChan chan<- bool) {
+func SendElevatorToFloor(order consts.ButtonEvent, onFloorChan chan<- bool) {
 	direction := consts.MotorUP
 
 	if ElevatorState.GetFloor() > order.Floor {
@@ -82,18 +89,19 @@ func SendElevatorToFloor(order consts.ButtonEvent, floorChan <-chan int, onFloor
 	ElevatorState.SetDirection(direction)
 
 	for {
-		floor := <- floorChan
+		floor := ElevatorState.GetFloor()
 
 		if floor == order.Floor {
 			handleReachedDestination(order)
 			onFloorChan <- true
 			return
 		}
+		time.Sleep(pollRate)
 	}
 }
 
 //func Init(stateChan chan<- Elevator, orderChan chan<- consts.ButtonEvent) {
-func Init(orderChan chan<- consts.ButtonEvent) {
+func Init() (chan consts.ButtonEvent, chan consts.ButtonEvent) {
 
 	InitIO()
 
@@ -102,13 +110,16 @@ func Init(orderChan chan<- consts.ButtonEvent) {
 	obstructChan := make(chan bool)
 	stopChan := make(chan bool)
 
+	cabButtonChan := make(chan consts.ButtonEvent)
+	hallButtonChan := make(chan consts.ButtonEvent)
+
 	go PollFloorSensor(floorChan)
 	go PollObstructionSwitch(obstructChan)
 	go PollStopButton(stopChan)
 	go PollButtons(buttonsChan)
 
 	//go stateHandler(floorChan, obstructChan, stopChan, buttonsChan, stateChan, orderChan)
-	go stateHandler(floorChan, obstructChan, stopChan, buttonsChan, orderChan)
+	go stateHandler(floorChan, obstructChan, stopChan, buttonsChan, cabButtonChan, hallButtonChan)
 
 	// wait for initialization of elevator
 	for ElevatorState.GetFloor() == -1 {
@@ -116,4 +127,5 @@ func Init(orderChan chan<- consts.ButtonEvent) {
 		time.Sleep(pollRate)
 	}
 	ElevatorState.SetDirection(consts.MotorSTOP)
+	return cabButtonChan, hallButtonChan
 }

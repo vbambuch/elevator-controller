@@ -52,11 +52,15 @@ func (m *Master) masterOrderHandler()  {
 		dbData := m.GetQueue().Pop()
 		if dbData != nil {
 			order := dbData.(consts.ButtonEvent)
+			fmt.Printf("[master] poped from db: %+v\n", order)
+
 			elData := m.GetDB().findFreeElevator(order.Floor)
 			if elData != nil {
 				//ip := elData.(string) //TODO return not string - net.Conn maybe?
-				fmt.Printf("parsed order: %+v\n", order)
+				fmt.Printf("[master] parsed order: %+v\n", order)
 				m.sendToSlave(order)
+			} else {
+				fmt.Println("[master] no free elevator")
 			}
 		}
 		
@@ -90,21 +94,22 @@ func (m *Master) listenIncomingMsg(conn *net.UDPConn)  {
 
 
 			switch data.Code {
-			case PeriodicNotify:
+			case PeriodicMsg:
 				//fmt.Println("-------------------------------")
-				fmt.Println("<-- periodic notification")
+				fmt.Println("[master] <- periodic")
 				//fmt.Println("floor:", data.Floor)
 				//fmt.Println("direction:", data.Direction)
 				//fmt.Println("-------------------------------")
 				ip := getClientIPAddr()
 				m.GetDB().storeData(ip, data)
 
-			case OrderNotify:
-				fmt.Println("<-- order")
+			case HallOrderMsg:
+				fmt.Println("[master] <- hall order")
 				//fmt.Println("-------------------------------")
-				//fmt.Print("received order:", data.OrderButton)
+				//fmt.Print("received order:", data.HallOrder)
 				//fmt.Println("-------------------------------")
-				m.GetQueue().Push(data.OrderButton)
+				order := data.HallOrder
+				m.GetQueue().Push(order)
 			}
 
 
@@ -124,7 +129,7 @@ func (m *Master) listenIncomingMsg(conn *net.UDPConn)  {
  * ping all slaves/backup
  * do same things as Slave
  */
-func StartMaster(orderChan <-chan consts.ButtonEvent, finish <-chan bool, masterConn *net.UDPConn, listenConn *net.UDPConn) {
+func StartMaster(masterConn *net.UDPConn, listenConn *net.UDPConn) {
 	ElevatorState.SetMasterConn(masterConn) // master conn has to be available for all roles
 
 	slavesDB := SlavesDB{}
@@ -133,10 +138,6 @@ func StartMaster(orderChan <-chan consts.ButtonEvent, finish <-chan bool, master
 		sync.Mutex{},
 		&slavesDB,
 	}
-
-	go ElevatorState.periodicNotifications(finish)
-	go ElevatorState.orderNotifications(orderChan)
-	go ElevatorState.listenFromMaster() //TODO move: general for all roles
 
 	go master.listenIncomingMsg(listenConn)
 	go master.masterOrderHandler()
@@ -167,7 +168,9 @@ func (i *SlavesDB) exists(ip string) (bool) {
 func (i *SlavesDB) update(item dbItem) {
 	for _, v := range i.array {
 		if v.ip == item.ip {
+			queue := v.data.CabQueue // keep previous queue
 			v.data = item.data
+			v.data.CabQueue = queue
 		}
 	}
 }
@@ -201,75 +204,4 @@ func (i *SlavesDB) findFreeElevator(floor int) interface{} {
 		return v.ip
 	}
 	return nil
-}
-
-
-func singleOrderHandler(stateChan <-chan Elevator)  {
-	var timeout = time.NewTimer(0)
-	ready := false
-	onFloorChan := make(chan bool)
-	floorChan := make(chan int)
-
-	for {
-		select {
-		case <- onFloorChan:
-			timeout.Reset(3 * time.Second)
-		case <- timeout.C:
-			fmt.Println("Elevator ready")
-			ElevatorState.SetDoorLight(false)
-			ready = true
-		case state := <- stateChan:
-		//state := <- stateChan
-			fmt.Println("New state")
-
-			order := state.GetOrderButton()
-
-			if order.Button != consts.DefaultValue {
-				fmt.Println("not default")
-
-				floor := state.GetFloor()
-				floorChan <- floor
-				fmt.Println("after")
-
-				if order.Button == consts.ButtonCAB {
-					if ready {
-						fmt.Printf("Ready for cab %d\n", order.Floor)
-						go SendElevatorToFloor(order, floorChan, onFloorChan)
-						ready = false
-					} else {
-						fmt.Printf("Pushed to cab queue %+v\n", order)
-						//ElevatorState.GetQueue(consts.CabQueue).Push(order)
-					}
-				} else {
-					if ready {
-						fmt.Printf("Ready for hall %d\n", order.Floor)
-						go SendElevatorToFloor(order, floorChan, onFloorChan)
-						ready = false
-					} else {
-						fmt.Printf("Pushed to hall queue %+v\n", order)
-						//ElevatorState.GetQueue(consts.HallQueue).Push(order)
-					}
-				}
-			}
-
-
-		//default:
-		//	if ElevatorState.GetQueue(consts.HallQueue).Len() != 0 &&
-		//		ElevatorState.GetQueue(consts.CabQueue).Len() == 0 &&
-		//		ready {
-		//		// pop order from hall queue
-		//		queueOrder := ElevatorState.GetQueue(consts.HallQueue).Pop().(consts.ButtonEvent)
-		//		fmt.Printf("Pop from hall queue %+v\n", queueOrder)
-		//		go SendElevatorToFloor(queueOrder, floorChan, onFloorChan)
-		//		ready = false
-		//	} else if ElevatorState.GetQueue(consts.CabQueue).Len() != 0 && ready {
-		//		// pop order from cab queue
-		//		queueOrder := ElevatorState.GetQueue(consts.CabQueue).Pop().(consts.ButtonEvent)
-		//		fmt.Printf("Pop from cab queue %+v\n", queueOrder)
-		//		go SendElevatorToFloor(queueOrder, floorChan, onFloorChan)
-		//		ready = false
-		//	}
-		}
-
-	}
 }
