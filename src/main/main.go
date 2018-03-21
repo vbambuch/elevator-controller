@@ -59,6 +59,10 @@ func errorHandler(errorChan <-chan consts.ElevatorError, newRoleChan chan<- bool
 	}
 }
 
+//Channels for the network
+var outgoingMsg = make(chan consts.Message, 10)
+var incomingMsg = make(chan consts.Message, 10)
+
 func main() {
 	errorChan := make(chan consts.ElevatorError)
 	newRoleChan := make(chan bool)
@@ -69,7 +73,10 @@ func main() {
 	roleDecision()
 
 	// initiate specific
+
+
 	//elevator.Init(stateChan, orderChan)
+	network.Initialize(outgoingMsg, incomingMsg)
 	elevator.Init(orderChan)
 
 	// start error detection
