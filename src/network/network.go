@@ -94,7 +94,7 @@ func Initialize(outgoingMsg, incomingMsg chan consts.Message){
 	//Initialize UDP connections
 	err := UDPInit(localListenPort, broadcastListenPort, messageSize, send, receive)
 	if err != nil {
-		fmt.Print("UDPInit() error: %v \n", err)
+		fmt.Printf("UDPInit() error: %+v \n", err)
 	}
 
 	//Goroutines

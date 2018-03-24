@@ -9,6 +9,7 @@ const Port = "15657"
 
 // Elevator consts
 const DefaultValue = -1
+var DefaultButton = ButtonEvent{DefaultValue, DefaultValue}
 type MotorDirection int
 
 const (
@@ -45,6 +46,8 @@ const (
 	Slave 		 = -1
 )
 
+
+
 // Error detection
 type ErrorCode int
 
@@ -57,22 +60,6 @@ const (
 type ElevatorError struct {
 	Code ErrorCode
 }
-
-//Network: Message struct
-type Message struct {
-	Category int
-	Master   bool
-	Floor    int
-	Button   int
-	Addr     string //`json:"-"`
-}
-
-//Network: Local IP address
-var Laddr string
-
-//Network: Channel for closing connections
-var CloseConnChan = make(chan bool)
-
 
 // Logprint colours for printing to console
 const (
@@ -89,10 +76,4 @@ const (
 
 
 
-
-// Network: Message category constant
-const (
-	Alive int = iota + 1
-
-)
 

@@ -3,13 +3,12 @@ package elevator
 import (
 	"net"
 	"sync"
-	"fmt"
 	"consts"
 	"time"
 	"log"
 	"encoding/json"
 	"network"
-	"helper"
+	"container/list"
 )
 
 func getClientIPAddr() (string) {
@@ -37,30 +36,59 @@ func (m *Master) GetDB() *SlavesDB {
 	return m.slaveDB
 }
 
-//func (m *Master) sendToSlave(ip string, order consts.ButtonEvent)  { //TODO uncomment when ready
-func (m *Master) sendToSlave(order consts.ButtonEvent)  {
+//func (m *Master) sendToSlave(ip string, order consts.ButtonEvent) { //TODO uncomment when ready
+func (m *Master) sendToSlave(notification consts.NotificationData) {
 	conn := network.GetSlaveTestSendConn() // TODO get conn from somewhere
 
-	data, err := json.Marshal(order) // TODO move to common functions
-	helper.HandleError(err, "JSON error")
+	data := GetNotification(notification)
+	conn.Write(data)
+}
+
+func (m *Master) broadcastToSlaves(notification consts.NotificationData) {
+	conn := network.GetSlaveTestSendConn() // TODO user actual broadcast function
+
+	data := GetNotification(notification)
+	//log.Println(consts.White, "broadcast", notification)
 
 	conn.Write(data)
 }
 
-func (m *Master) masterOrderHandler()  {
+func (m *Master) masterOrderHandler() {
 	for {
-		dbData := m.GetQueue().Pop()
+		dbData := m.GetQueue().Peek()
 		if dbData != nil {
 			order := dbData.(consts.ButtonEvent)
-			fmt.Printf("[master] poped from db: %+v\n", order)
+			//log.Println(consts.White, "peek of db", order)
 
 			elData := m.GetDB().findFreeElevator(order.Floor)
 			if elData != nil {
-				//ip := elData.(string) //TODO return not string - net.Conn maybe?
-				fmt.Printf("[master] parsed order: %+v\n", order)
-				m.sendToSlave(order)
+
+				// force this elevator to busy (don't wait for periodic update)
+				// ignore next 5 updates from specific slave
+				item := elData.(dbItem)
+				m.GetDB().update(dbItem{
+					ip: item.ip,
+					ignore: 5,
+					data: consts.PeriodicData{
+						Floor: item.data.Floor,
+						Direction: item.data.Direction,
+						CabQueue: item.data.CabQueue,
+						Ready: false,
+					},
+				})
+
+				//ip := elData.(string) //TODO return non string type - net.Conn maybe?
+				m.GetQueue().Pop()
+				log.Println(consts.White, "parsed order", order, consts.Neutral)
+
+				notification := consts.NotificationData{
+					Code: consts.MasterHallOrder,
+					Data: GetRawJSON(order),
+				}
+
+				m.sendToSlave(notification)
 			} else {
-				fmt.Println("[master] no free elevator")
+				//log.Println(consts.White, "no free elevator")
 			}
 		}
 		
@@ -70,49 +98,58 @@ func (m *Master) masterOrderHandler()  {
 	}
 }
 
-func (m *Master) listenIncomingMsg(conn *net.UDPConn)  {
-	var data NotificationData
+func (m *Master) listenIncomingMsg(conn *net.UDPConn) {
+	var typeJson consts.NotificationData
 	buffer := make([]byte, 8192)
 
 	for {
 		n, err := conn.Read(buffer[0:])
 		if err != nil {
-			fmt.Println("reading master failed")
+			log.Println(consts.White, "reading master failed")
 			log.Fatal(err)
 		}
-		/*fmt.Println(string(buffer))*/
-		//fmt.Println(buffer)
+		/*log.Println(consts.White, string(buffer))*/
+		//log.Println(consts.White, buffer)
 		if len(buffer) > 0 {
-			//fmt.Println(string(buffer))
-			err2 := json.Unmarshal(buffer[0:n], &data)
+			//log.Println(consts.White, string(buffer))
+			err2 := json.Unmarshal(buffer[0:n], &typeJson)
 			if err2 != nil {
-				fmt.Println("unmarshal master failed")
+				log.Println(consts.White, "unmarshal master failed")
 				log.Fatal(err2)
 			}
 
-			//fmt.Println("received", data)
+			//log.Println(consts.White, "received", typeJson)
 
 
-			switch data.Code {
-			case PeriodicMsg:
-				//fmt.Println("-------------------------------")
-				fmt.Println("[master] <- periodic")
-				//fmt.Println("floor:", data.Floor)
-				//fmt.Println("direction:", data.Direction)
-				//fmt.Println("-------------------------------")
+			switch typeJson.Code {
+			case consts.SlavePeriodicMsg:
+				data := consts.PeriodicData{}
+				json.Unmarshal(typeJson.Data, &data)
+
+				//log.Println(consts.White, "-------------------------------")
+				//log.Println(consts.White, "<- periodic")
+				//log.Println(consts.White, "floor:", typeJson.Floor)
+				//log.Println(consts.White, "direction:", typeJson.Direction)
+				//log.Println(consts.White, "-------------------------------")
 				ip := getClientIPAddr()
 				m.GetDB().storeData(ip, data)
 
-			case HallOrderMsg:
-				fmt.Println("[master] <- hall order")
-				//fmt.Println("-------------------------------")
-				//fmt.Print("received order:", data.HallOrder)
-				//fmt.Println("-------------------------------")
-				order := data.HallOrder
+			case consts.SlaveHallOrder:
+				order := consts.ButtonEvent{}
+				json.Unmarshal(typeJson.Data, &order)
+				log.Println(consts.White, "<- hall order", consts.Neutral)
+				//log.Println(consts.White, "-------------------------------")
+				//log.Println(consts.White, "received order:", order)
+				//log.Println(consts.White, "-------------------------------")
 				m.GetQueue().Push(order)
+
+				// TODO broadcast all slaves to turn on light bulbs
+				notification := consts.NotificationData{
+					Code: consts.MasterHallLight,
+					Data: GetRawJSON(order),
+				}
+				m.broadcastToSlaves(notification)
 			}
-
-
 		}
 
 	}
@@ -148,17 +185,21 @@ func StartMaster(masterConn *net.UDPConn, listenConn *net.UDPConn) {
 // Database of slaves
 type dbItem struct {
 	ip 			string
-	data 		NotificationData
+	ignore		int
+	data 		consts.PeriodicData
 }
 
 type SlavesDB struct {
-	array 	[]dbItem
-	mux 	sync.Mutex
+	list list.List		// list of dbItems
+	mux  sync.Mutex
 }
 
 func (i *SlavesDB) exists(ip string) (bool) {
-	for _, v := range i.array {
-		if v.ip == ip {
+	i.mux.Lock()
+	defer i.mux.Unlock()
+
+	for e := i.list.Front(); e != nil; e = e.Next() {
+		if e.Value.(dbItem).ip == ip {
 			return true
 		}
 	}
@@ -166,42 +207,72 @@ func (i *SlavesDB) exists(ip string) (bool) {
 }
 
 func (i *SlavesDB) update(item dbItem) {
-	for _, v := range i.array {
+	i.mux.Lock()
+	defer i.mux.Unlock()
+
+	for e := i.list.Front(); e != nil; e = e.Next() {
+		v := e.Value.(dbItem)
 		if v.ip == item.ip {
-			queue := v.data.CabQueue // keep previous queue
-			v.data = item.data
-			v.data.CabQueue = queue
+			//queue := v.data.CabQueue // keep previous queue
+			//log.Println(consts.White, "db item", v.ignore)
+
+			if v.ignore > 0 {
+				e.Value = dbItem{
+					ip: v.ip,
+					ignore: v.ignore -1,
+					data: v.data,
+				}
+			} else {
+				e.Value = dbItem{
+					ip: v.ip,
+					ignore: item.ignore,
+					data: item.data,
+				}
+			}
+
+			//v.data = item.data
+			//v.data.CabQueue = queue
 		}
 	}
 }
 
-func (i *SlavesDB) storeData(ip string, data NotificationData)  {
-	i.mux.Lock()
-	defer i.mux.Unlock()
-
-	item := dbItem{ip, data}
+func (i *SlavesDB) storeData(ip string, data consts.PeriodicData)  {
+	item := dbItem{ip, 0,data}
 	if i.exists(ip) {
 		i.update(item)
+		//log.Println(consts.White, "db item", item.data.Ready)
 	} else {
-		i.array = append(i.array, item)
+		i.list.PushBack(item)
 	}
 
-	//fmt.Printf("db: %+v\n", i)
+	//log.Println(consts.White, "db", i)
 }
 
 func (i *SlavesDB) findElevatorsOnFloor(floor int) interface{} {
-	for _, v := range i.array {
-		elData := v.data
+	i.mux.Lock()
+	defer i.mux.Unlock()
+
+	for e := i.list.Front(); e != nil; e = e.Next() {
+
+		elData := e.Value.(dbItem).data
 		if elData.Floor == floor {
-			return v
+			return elData
 		}
 	}
 	return nil
 }
 
 func (i *SlavesDB) findFreeElevator(floor int) interface{} {
-	for _, v := range i.array {
-		return v.ip
+	i.mux.Lock()
+	defer i.mux.Unlock()
+
+	for e := i.list.Front(); e != nil; e = e.Next() {
+		item := e.Value.(dbItem)
+		//log.Println(consts.White, "db item", item)
+
+		if item.data.Ready {
+			return item
+		}
 	}
 	return nil
 }

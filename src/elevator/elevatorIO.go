@@ -174,7 +174,7 @@ func toByte(a bool) byte {
 }
 
 func toBool(a byte) bool {
-	var b bool = false
+	var b = false
 	if a != 0 {
 		b = true
 	}

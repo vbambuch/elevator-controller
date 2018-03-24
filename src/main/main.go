@@ -1,15 +1,17 @@
 package main
 
 import (
-	"fmt"
 	"elevator"
 	"network"
 	"consts"
+	"log"
 )
 
 func roleDecision()  {
 	role := network.FindOutRole()
+	//role := network.FindOutNewMaster()
 	elevator.ElevatorState.SetRole(role)
+	//elevator.ElevatorState.SetMasterConn()
 }
 
 
@@ -18,7 +20,7 @@ func startCommonProcedures(receivedCabChan <-chan consts.ButtonEvent, sendHallCh
 
 	go elevator.ElevatorState.PeriodicNotifications()
 	go elevator.ElevatorState.HallOrderNotifications(sendHallChan)
-	go elevator.ElevatorState.ListenFromMaster(receivedHallChan)
+	go elevator.ElevatorState.ListenIncomingMsg(receivedHallChan)
 	go elevator.ElevatorState.OrderHandler(receivedCabChan, receivedHallChan)
 }
 
@@ -36,13 +38,13 @@ func roleChangeHandler(orderChan <-chan consts.ButtonEvent, newRoleChan <-chan b
 		listenConn := network.GetListenConn()
 		switch elevator.ElevatorState.GetRole() {
 		case consts.Master:
-			fmt.Println("It's master")
+			log.Println(consts.Blue, "It's master", consts.Neutral)
 			go elevator.StartMaster(masterConn, listenConn)
 		case consts.Backup:
-			fmt.Println("It's backup")
+			log.Println(consts.Blue, "It's backup", consts.Neutral)
 			go elevator.StartBackup(orderChan, masterConn)
 		case consts.Slave:
-			fmt.Println("It's slave")
+			log.Println(consts.Blue, "It's slave", consts.Neutral)
 			go elevator.StartSlave(orderChan, masterConn)
 		}
 	}
@@ -54,15 +56,15 @@ func errorHandler(errorChan <-chan consts.ElevatorError, newRoleChan chan<- bool
 		case err := <- errorChan:
 			switch err.Code {
 			case consts.MasterFailed:
-				fmt.Println("Master failed")
+				log.Println("Master failed")
 				roleDecision()
 				newRoleChan <- true
 			case consts.BackupFailed:
-				fmt.Println("Backup failed")
+				log.Println("Backup failed")
 				roleDecision()
 				newRoleChan <- true
 			case consts.SlaveFailed:
-				fmt.Println("Slave failed")
+				log.Println("Slave failed")
 			}
 		}
 	}
@@ -91,11 +93,11 @@ func main() {
 	// start error detection
 	//go network.ErrorDetection(errorChan)
 	go errorHandler(errorChan, newRoleChan)
-	go startCommonProcedures(cabButtonChan, hallButtonChan, )
+	go startCommonProcedures(cabButtonChan, hallButtonChan)
 	go roleChangeHandler(orderChan, newRoleChan)
 
 	newRoleChan <- true
-	fmt.Println("App started")
+	log.Println(consts.Green, "App started", consts.Neutral)
 	blocker := make(chan bool, 1)
 	<- blocker
 }

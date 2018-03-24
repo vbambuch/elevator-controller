@@ -19,18 +19,20 @@ func stateHandler(floorChan <-chan int, obstructChan, stopChan <-chan bool, butt
 			//fmt.Printf("%+v\n", button)
 			if button.Button == consts.ButtonCAB {
 				cabButtonChan <- button
+				WriteButtonLamp(button.Button, button.Floor, true)
 			} else {
+				//ElevatorState.SetHallButton(button)
 				hallButtonChan <- button
 			}
 
 			//if button != ElevatorState.GetOrderButton() {
-			//	ElevatorState.SetOrderButton(button) // prevent order button spam
+			//	ElevatorState.SetHallButton(button) // prevent order button spam
 			//	orderChan <- button
 			//	changed = true
 			//}
 
 		case floor := <-floorChan:
-			fmt.Printf("floor: %+v\n", floor)
+			//fmt.Printf("floor: %+v\n", floor)
 			if floor != ElevatorState.GetFloor() {
 				if floor == consts.MinFloor || floor == consts.MaxFloor {
 					ElevatorState.SetDirection(consts.MotorSTOP)
@@ -60,7 +62,7 @@ func stateHandler(floorChan <-chan int, obstructChan, stopChan <-chan bool, butt
 			}
 		}
 		if changed {
-			fmt.Println("Changed")
+			//fmt.Println("Changed")
 
 			//stateChan <- ElevatorState
 			changed = false
@@ -71,7 +73,7 @@ func stateHandler(floorChan <-chan int, obstructChan, stopChan <-chan bool, butt
 func handleReachedDestination(order consts.ButtonEvent)  {
 	ElevatorState.SetDirection(consts.MotorSTOP)
 	ElevatorState.SetDoorLight(true)
-	ElevatorState.ClearOrderButton(order)
+	ElevatorState.ClearOrderButton(order) // TODO send to master to clear in all elevators
 }
 
 func SendElevatorToFloor(order consts.ButtonEvent, onFloorChan chan<- bool) {
@@ -87,6 +89,7 @@ func SendElevatorToFloor(order consts.ButtonEvent, onFloorChan chan<- bool) {
 
 	ElevatorState.SetDoorLight(false)
 	ElevatorState.SetDirection(direction)
+	ElevatorState.SetReady(false)
 
 	for {
 		floor := ElevatorState.GetFloor()

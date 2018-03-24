@@ -78,7 +78,7 @@ func TestZigZag(t *testing.T) {
  */
 func makeOrder(floor int, bt C.ButtonType, stateInfoChan chan elevator.Elevator, readyChan chan bool)  {
 	order := C.ButtonEvent{Floor: floor, Button: bt}
-	elevator.ElevatorState.SetOrderButton(order)
+	elevator.ElevatorState.SetHallButton(order)
 	go elevator.SendElevatorToFloor(order, stateInfoChan, readyChan)
 	<- readyChan
 	time.Sleep(2000 * time.Millisecond)
