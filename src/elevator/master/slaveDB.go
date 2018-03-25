@@ -5,20 +5,29 @@ import (
 	"container/list"
 	"sync"
 	"log"
+	"sort"
 )
+
+// Sorting dbItems
+type ByQueue []dbItem
+
+func (a ByQueue) Len() int           { return len(a) }
+func (a ByQueue) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ByQueue) Less(i, j int) bool { return len(a[i].data.CabArray) < len(a[j].data.CabArray) }
+
 
 // Database of slaves
 type SlaveData struct {
-	Floor     int
-	Direction consts.MotorDirection
-	CabQueue  consts.Queue
-	Ready 	  bool
+	Floor      int
+	Direction  consts.MotorDirection
+	OrderArray []consts.ButtonEvent
+	Ready      bool
 }
 
 type dbItem struct {
 	ip     string
 	ignore int
-	data   SlaveData
+	data   consts.PeriodicData
 }
 
 type SlavesDB struct {
@@ -34,7 +43,7 @@ func (i *SlavesDB) dump() {
 		data := e.Value.(dbItem).data
 		log.Println(consts.Yellow, "floor:", data.Floor, consts.Neutral)
 		log.Println(consts.Yellow, "direction:", data.Direction, consts.Neutral)
-		log.Println(consts.Yellow, "queue:", data.CabQueue, consts.Neutral)
+		log.Println(consts.Yellow, "queue:", data.CabArray, consts.Neutral)
 		log.Println(consts.Yellow, "ready:", data.Ready, consts.Neutral)
 	}
 }
@@ -58,9 +67,9 @@ func (i *SlavesDB) update(item dbItem) {
 	for e := i.list.Front(); e != nil; e = e.Next() {
 		v := e.Value.(dbItem)
 		if v.ip == item.ip {
-			//queue := v.data.CabQueue // keep previous queue
-			//log.Println(consts.White, "db item", v.ignore)
-			//log.Printf("db item %+v", v.data.CabQueue.Len())
+			//queue := v.data.OrderArray // keep previous queue
+			//log.Println(consts.White, "db item", v.ignore, v.data.Ready)
+			//log.Printf("db item %+v", v.data.OrderArray.Len())
 
 			if v.ignore > 0 {
 				e.Value = dbItem{
@@ -79,7 +88,7 @@ func (i *SlavesDB) update(item dbItem) {
 	}
 }
 
-func (i *SlavesDB) storeData(ip string, data SlaveData)  {
+func (i *SlavesDB) storeData(ip string, data consts.PeriodicData)  {
 	item := dbItem{ip, 0,data}
 	if i.exists(ip) {
 		i.update(item)
@@ -91,17 +100,23 @@ func (i *SlavesDB) storeData(ip string, data SlaveData)  {
 	//log.Println(consts.White, "db", i)
 }
 
-func (i *SlavesDB) findElevatorsOnFloor(floor int) interface{} {
+func (i *SlavesDB) findElevatorOnFloor(floor int) interface{} {
 	i.mux.Lock()
 	defer i.mux.Unlock()
 
+	var onFloorArray []dbItem
 	for e := i.list.Front(); e != nil; e = e.Next() {
-
-		elData := e.Value.(dbItem).data
-		if elData.Floor == floor {
-			return elData
+		elItem := e.Value.(dbItem)
+		if elItem.data.Floor == floor && elItem.data.Ready {
+			onFloorArray = append(onFloorArray, elItem)
 		}
 	}
+
+	if len(onFloorArray) > 0 {
+		sort.Sort(ByQueue(onFloorArray))
+		return onFloorArray[0]
+	}
+
 	return nil
 }
 
@@ -120,3 +135,69 @@ func (i *SlavesDB) findFreeElevator() interface{} {
 	return nil
 }
 
+func (i *SlavesDB) findSameDirection(order consts.ButtonEvent) interface{} {
+	i.mux.Lock()
+	defer i.mux.Unlock()
+
+	var suitableArray []dbItem
+	for e := i.list.Front(); e != nil; e = e.Next() {
+		item := e.Value.(dbItem)
+		//log.Println(consts.White, "db item", item)
+
+		if suitableElevator(item.data.CabArray, item.data.Floor, order) {
+			suitableArray = append(suitableArray, item)
+		} else {
+		//log.Println(consts.Yellow, "not suitable", item.data.CabArray, consts.Neutral)
+		}
+	}
+
+	if len(suitableArray) > 0 {
+		sort.Sort(ByQueue(suitableArray))
+		return suitableArray[0]
+	}
+
+	return nil
+}
+
+/**
+ * Main function for elevator searching
+ */
+func (i *SlavesDB) findElevator(order consts.ButtonEvent) interface{} {
+	message := "on floor"
+	elevator := i.findElevatorOnFloor(order.Floor)
+	if elevator == nil {
+		message = "free"
+		elevator = i.findFreeElevator()
+		if elevator == nil {
+			message = "same direction"
+			elevator = i.findSameDirection(order)
+			if elevator == nil {
+				//TODO
+				//log.Println(consts.White, "Elevator not found", consts.Neutral)
+			}
+		}
+	}
+
+	if elevator != nil {
+		log.Println(consts.White, "Found: elevator", message, consts.Neutral)
+	}
+
+	return elevator
+}
+
+func suitableElevator(cabArray []consts.ButtonEvent, currFloor int, hallOrder consts.ButtonEvent) bool {
+	for _, cabOrder := range cabArray {
+		// elevator | hallCall - UP | cabCall => stop on hallCall
+		if currFloor < hallOrder.Floor &&
+				hallOrder.Floor < cabOrder.Floor &&
+				hallOrder.Button == consts.ButtonUP {
+			return true
+		// cabCall | hallCall - DOWN | elevator => stop on hallCall
+		} else if currFloor > hallOrder.Floor &&
+				hallOrder.Floor > cabOrder.Floor &&
+				hallOrder.Button == consts.ButtonDOWN {
+			return true
+		}
+	}
+	return false
+}

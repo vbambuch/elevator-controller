@@ -8,6 +8,7 @@ import (
 	"net"
 	"network"
 	"log"
+	"helper"
 )
 
 // ElevatorState constructor
@@ -63,10 +64,10 @@ func (e *Elevator) sendToMaster(data consts.Notification) bool {
 func (e *Elevator) PeriodicNotifications() {
 	for {
 		data := consts.PeriodicData{
-			Floor: e.floor,
+			Floor:     e.floor,
 			Direction: e.direction,
-			CabQueue: GetRawJSON(e.cabQueue),
-			Ready: e.ready,
+			CabArray:  helper.QueueToArray(*e.cabQueue),
+			Ready:     e.ready,
 		}
 		notification := consts.NotificationData{
 			Code: consts.SlavePeriodicMsg,
@@ -77,8 +78,8 @@ func (e *Elevator) PeriodicNotifications() {
 		if e.sendToMaster(msg) {
 			//log.Println(consts.Blue, "-> periodic", *e.cabQueue, consts.Neutral)
 		}
-		time.Sleep(1 * time.Second)
-		//time.Sleep(consts.PollRate)
+		//time.Sleep(1 * time.Second)
+		time.Sleep(consts.PollRate)
 	}
 }
 
@@ -152,6 +153,7 @@ func (e *Elevator) OrderHandler(cabButtonChan <-chan consts.ButtonEvent, hallBut
 		select {
 		case <- onFloorChan:
 			timeout.Reset(3 * time.Second)
+			ElevatorState.GetQueue().Pop()
 		case <- timeout.C:
 			//log.Println(consts.Blue, "Elevator ready", consts.Neutral)
 			ElevatorState.SetDoorLight(false)
@@ -160,6 +162,7 @@ func (e *Elevator) OrderHandler(cabButtonChan <-chan consts.ButtonEvent, hallBut
 		case cabOrder := <- cabButtonChan:
 			if ready {
 				log.Println(consts.Blue, "Ready for cab", cabOrder.Floor, consts.Neutral)
+				ElevatorState.GetQueue().Push(cabOrder)
 				go SendElevatorToFloor(cabOrder, onFloorChan)
 				ready = false
 			} else {
@@ -193,7 +196,7 @@ func (e *Elevator) OrderHandler(cabButtonChan <-chan consts.ButtonEvent, hallBut
 
 		default:
 			//if ElevatorState.GetQueue(consts.HallQueue).Len() != 0 &&
-			//	ElevatorState.GetQueue(consts.CabQueue).Len() == 0 &&
+			//	ElevatorState.GetQueue(consts.CabArray).Len() == 0 &&
 			//	ready {
 
 			//	// pop order from hall queue
@@ -344,7 +347,7 @@ func (e *Elevator) GetDoorLight() bool {
 //	i.mux.Lock()
 //	defer i.mux.Unlock()
 //	queue := i.hallQueue
-//	if qt == consts.CabQueue {
+//	if qt == consts.CabArray {
 //		queue = i.cabQueue
 //	}
 //	return queue

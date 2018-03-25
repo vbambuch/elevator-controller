@@ -54,26 +54,29 @@ func (m *Master) broadcastToSlaves(notification consts.NotificationData) {
 }
 
 func (m *Master) masterOrderHandler() {
+	db := m.GetDB()
+
 	for {
-		dbData := m.GetQueue().Peek()
-		if dbData != nil {
-			order := dbData.(consts.ButtonEvent)
+		queue := m.GetQueue().Peek()
+		if queue != nil { // empty queue test
+			order := queue.(consts.ButtonEvent)
 			//log.Println(consts.White, "peek of db", order)
 
-			elData := m.GetDB().findFreeElevator()
+			elData := db.findElevator(order)
 			if elData != nil {
+				//log.Println(consts.Red, "elData:", elData, consts.Neutral)
 
 				// force this elevator to busy (don't wait for periodic update)
 				// ignore next 5 updates from specific slave
 				item := elData.(dbItem)
-				m.GetDB().update(dbItem{
+				db.update(dbItem{
 					ip: item.ip,
-					ignore: 5,
-					data: SlaveData{
-						Floor: item.data.Floor,
-						Direction: item.data.Direction,
-						CabQueue: item.data.CabQueue,
-						Ready: false,
+					ignore: 10,
+					data: consts.PeriodicData{
+						Floor:      item.data.Floor,
+						Direction:  item.data.Direction,
+						CabArray:   item.data.CabArray,
+						Ready:      false,
 					},
 				})
 
@@ -86,14 +89,12 @@ func (m *Master) masterOrderHandler() {
 					Data: common.GetRawJSON(order),
 				}
 
+				// TODO get conn from "item.ip"
 				m.sendToSlave(notification)
 			} else {
 				//log.Println(consts.White, "no free elevator")
 			}
 		}
-		
-		
-		
 		time.Sleep(consts.PollRate)
 	}
 }
@@ -126,25 +127,26 @@ func (m *Master) listenIncomingMsg(conn *net.UDPConn) {
 				data := consts.PeriodicData{} // for parsing of incoming message
 				json.Unmarshal(typeJson.Data, &data)
 
-				queue := consts.Queue{}
-				err2 := json.Unmarshal(data.CabQueue, &queue)
-				if err2 != nil {
-					log.Println(consts.White, "unmarshal master failed")
-					log.Fatal(err2)
-				}
+				//queue := consts.Queue{}
+				//err2 := json.Unmarshal(data.CabArray, &queue)
+				//if err2 != nil {
+				//	log.Println(consts.White, "array unmarshal master failed")
+				//	log.Fatal(err2)
+				//}
 
 				//log.Printf("queue: %+v", queue)
 				//log.Println(consts.White, "<- periodic", queue, consts.Neutral)
-				slaveData := SlaveData{
-					Floor: data.Floor,
-					Direction: data.Direction,
-					CabQueue: queue,
-					Ready: data.Ready,
-				}
+				//slaveData := SlaveData{
+				//	Floor:      data.Floor,
+				//	Direction:  data.Direction,
+				//	OrderArray: data.CabArray,
+				//	Ready:      data.Ready,
+				//}
 
-				//data.CabQueue = queue
+				//data.OrderArray = queue
 				ip := getClientIPAddr()
-				m.GetDB().storeData(ip, slaveData)
+				//m.GetDB().storeData(ip, slaveData)
+				m.GetDB().storeData(ip, data)
 
 				//m.GetDB().dump()
 			case consts.SlaveHallOrder:

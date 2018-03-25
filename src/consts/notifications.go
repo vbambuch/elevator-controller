@@ -25,6 +25,6 @@ type NotificationData struct {
 type PeriodicData struct {
 	Floor     int
 	Direction MotorDirection
-	CabQueue  json.RawMessage
-	Ready 	  bool
+	CabArray  []ButtonEvent
+	Ready     bool
 }
