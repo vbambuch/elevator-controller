@@ -37,44 +37,44 @@ type queuenode struct {
 
 //	A go-routine safe FIFO (first in first out) data stucture.
 type Queue struct {
-	head  *queuenode
-	tail  *queuenode
-	count int
-	lock  *sync.Mutex
+	Head  *queuenode
+	Tail  *queuenode
+	Count int
+	Lock  *sync.Mutex
 }
 
 //	Creates a new pointer to a new queue.
 func NewQueue() *Queue {
 	q := &Queue{}
-	q.lock = &sync.Mutex{}
+	q.Lock = &sync.Mutex{}
 	return q
 }
 
 //	Returns the number of elements in the queue (i.e. size/length)
 //	go-routine safe.
 func (q *Queue) Len() int {
-	q.lock.Lock()
-	defer q.lock.Unlock()
-	return q.count
+	q.Lock.Lock()
+	defer q.Lock.Unlock()
+	return q.Count
 }
 
-//	Pushes/inserts a value at the end/tail of the queue.
+//	Pushes/inserts a value at the end/Tail of the queue.
 //	Note: this function does mutate the queue.
 //	go-routine safe.
 func (q *Queue) Push(item interface{}) {
-	q.lock.Lock()
-	defer q.lock.Unlock()
+	q.Lock.Lock()
+	defer q.Lock.Unlock()
 
 	n := &queuenode{data: item}
 
-	if q.tail == nil {
-		q.tail = n
-		q.head = n
+	if q.Tail == nil {
+		q.Tail = n
+		q.Head = n
 	} else {
-		q.tail.next = n
-		q.tail = n
+		q.Tail.next = n
+		q.Tail = n
 	}
-	q.count++
+	q.Count++
 }
 
 //	Returns the value at the front of the queue.
@@ -82,20 +82,20 @@ func (q *Queue) Push(item interface{}) {
 //	Note: this function does mutate the queue.
 //	go-routine safe.
 func (q *Queue) Pop() interface{} {
-	q.lock.Lock()
-	defer q.lock.Unlock()
+	q.Lock.Lock()
+	defer q.Lock.Unlock()
 
-	if q.head == nil {
+	if q.Head == nil {
 		return nil
 	}
 
-	n := q.head
-	q.head = n.next
+	n := q.Head
+	q.Head = n.next
 
-	if q.head == nil {
-		q.tail = nil
+	if q.Head == nil {
+		q.Tail = nil
 	}
-	q.count--
+	q.Count--
 
 	return n.data
 }
@@ -105,10 +105,10 @@ func (q *Queue) Pop() interface{} {
 //	Note: this function does NOT mutate the queue.
 //	go-routine safe.
 func (q *Queue) Peek() interface{} {
-	q.lock.Lock()
-	defer q.lock.Unlock()
+	q.Lock.Lock()
+	defer q.Lock.Unlock()
 
-	n := q.head
+	n := q.Head
 	if n == nil {
 		return nil
 	}

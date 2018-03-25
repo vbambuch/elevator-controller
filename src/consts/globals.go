@@ -1,5 +1,7 @@
 package consts
 
+import "time"
+
 const MinFloor = 0
 const MaxFloor = 3
 const NumFloors = MaxFloor + 1
@@ -11,6 +13,7 @@ const Port = "15657"
 const DefaultValue = -1
 var DefaultButton = ButtonEvent{DefaultValue, DefaultValue}
 type MotorDirection int
+const PollRate = 20 * time.Millisecond
 
 const (
 	MotorUP   MotorDirection = 1

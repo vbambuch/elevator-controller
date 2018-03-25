@@ -1,27 +1,29 @@
 package main
 
 import (
-	"elevator"
 	"network"
 	"consts"
 	"log"
+	"elevator/master"
+	"elevator/common"
+	"elevator/slave"
 )
 
 func roleDecision()  {
 	role := network.FindOutRole()
 	//role := network.FindOutNewMaster()
-	elevator.ElevatorState.SetRole(role)
-	//elevator.ElevatorState.SetMasterConn()
+	common.ElevatorState.SetRole(role)
+	//common.ElevatorState.SetMasterConn()
 }
 
 
 func startCommonProcedures(receivedCabChan <-chan consts.ButtonEvent, sendHallChan <-chan consts.ButtonEvent)  {
 	receivedHallChan := make(chan consts.ButtonEvent)
 
-	go elevator.ElevatorState.PeriodicNotifications()
-	go elevator.ElevatorState.HallOrderNotifications(sendHallChan)
-	go elevator.ElevatorState.ListenIncomingMsg(receivedHallChan)
-	go elevator.ElevatorState.OrderHandler(receivedCabChan, receivedHallChan)
+	go common.ElevatorState.PeriodicNotifications()
+	go common.ElevatorState.HallOrderNotifications(sendHallChan)
+	go common.ElevatorState.ListenIncomingMsg(receivedHallChan)
+	go common.ElevatorState.OrderHandler(receivedCabChan, receivedHallChan)
 }
 
 func roleChangeHandler(orderChan <-chan consts.ButtonEvent, newRoleChan <-chan bool)  {
@@ -36,16 +38,16 @@ func roleChangeHandler(orderChan <-chan consts.ButtonEvent, newRoleChan <-chan b
 		//started = true
 		masterConn := network.GetMasterConn()
 		listenConn := network.GetListenConn()
-		switch elevator.ElevatorState.GetRole() {
+		switch common.ElevatorState.GetRole() {
 		case consts.Master:
 			log.Println(consts.Blue, "It's master", consts.Neutral)
-			go elevator.StartMaster(masterConn, listenConn)
+			go master.StartMaster(masterConn, listenConn)
 		case consts.Backup:
 			log.Println(consts.Blue, "It's backup", consts.Neutral)
-			go elevator.StartBackup(orderChan, masterConn)
+			go slave.StartBackup(orderChan, masterConn)
 		case consts.Slave:
 			log.Println(consts.Blue, "It's slave", consts.Neutral)
-			go elevator.StartSlave(orderChan, masterConn)
+			go slave.StartSlave(orderChan, masterConn)
 		}
 	}
 }
@@ -77,7 +79,7 @@ var incomingMsg = make(chan consts.Message, 10)
 func main() {
 	errorChan := make(chan consts.ElevatorError)
 	newRoleChan := make(chan bool)
-	//stateChan := make(chan elevator.Elevator)
+	//stateChan := make(chan common.Elevator)
 	orderChan := make(chan consts.ButtonEvent)
 
 	// master-backup-slave decision
@@ -86,8 +88,8 @@ func main() {
 	// initiate specific
 
 
-	//elevator.Init(stateChan, orderChan)
-	cabButtonChan, hallButtonChan := elevator.Init()
+	//common.Init(stateChan, orderChan)
+	cabButtonChan, hallButtonChan := common.Init()
 	network.Initialize(outgoingMsg, incomingMsg)
 
 	// start error detection

@@ -1,4 +1,4 @@
-package elevator
+package common
 
 import (
 	"time"
@@ -8,10 +8,6 @@ import (
 	"strings"
 	"consts"
 )
-
-
-
-const pollRate = 20 * time.Millisecond
 
 var initialized = false
 var mutex sync.Mutex
@@ -70,7 +66,7 @@ func WriteStopLamp(value bool) {
 func PollButtons(receiver chan<- consts.ButtonEvent) {
 	prev := make([][3]bool, consts.NumFloors)
 	for {
-		time.Sleep(pollRate)
+		time.Sleep(consts.PollRate)
 		//fmt.Println("Poll buttons")
 		for f := 0; f < consts.NumFloors; f++ {
 			for b := consts.ButtonType(0); b < 3; b++ {
@@ -87,7 +83,7 @@ func PollButtons(receiver chan<- consts.ButtonEvent) {
 func PollFloorSensor(receiver chan<- int) {
 	prev := -1
 	for {
-		time.Sleep(pollRate)
+		time.Sleep(consts.PollRate)
 		//fmt.Println("Poll sensor")
 		v := ReadFloor()
 		if v != prev && v != -1 {
@@ -100,7 +96,7 @@ func PollFloorSensor(receiver chan<- int) {
 func PollStopButton(receiver chan<- bool) {
 	prev := false
 	for {
-		time.Sleep(pollRate)
+		time.Sleep(consts.PollRate)
 		//fmt.Println("Poll stop button")
 		v := readStopButton()
 		if v != prev {
@@ -113,7 +109,7 @@ func PollStopButton(receiver chan<- bool) {
 func PollObstructionSwitch(receiver chan<- bool) {
 	prev := false
 	for {
-		time.Sleep(pollRate)
+		time.Sleep(consts.PollRate)
 		//fmt.Println("Poll obstruction")
 		v := readObstruction()
 		if v != prev {

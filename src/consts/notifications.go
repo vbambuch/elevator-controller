@@ -18,12 +18,13 @@ const (
 
 type NotificationData struct {
 	Code      notificationCode
-	Data 	  json.RawMessage
+	Data 	  json.RawMessage	// to be able to send different structures inside Data
 }
 
+// one type of data sending inside "NotificationData.Data"
 type PeriodicData struct {
 	Floor     int
 	Direction MotorDirection
-	CabQueue  *Queue
+	CabQueue  json.RawMessage
 	Ready 	  bool
 }

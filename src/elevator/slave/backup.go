@@ -1,4 +1,4 @@
-package elevator
+package slave
 
 import (
 	"net"

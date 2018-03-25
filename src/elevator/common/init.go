@@ -1,10 +1,10 @@
-package elevator
+package common
 
 import (
 	"consts"
 	"time"
 	//"helper"
-	"fmt"
+	"log"
 )
 
 
@@ -16,7 +16,7 @@ func stateHandler(floorChan <-chan int, obstructChan, stopChan <-chan bool, butt
 	for {
 		select {
 		case button := <-buttonsChan:
-			//fmt.Printf("%+v\n", button)
+			//log.Printf("%+v\n", button)
 			if button.Button == consts.ButtonCAB {
 				cabButtonChan <- button
 				WriteButtonLamp(button.Button, button.Floor, true)
@@ -32,7 +32,7 @@ func stateHandler(floorChan <-chan int, obstructChan, stopChan <-chan bool, butt
 			//}
 
 		case floor := <-floorChan:
-			//fmt.Printf("floor: %+v\n", floor)
+			//log.Printf("floor: %+v\n", floor)
 			if floor != ElevatorState.GetFloor() {
 				if floor == consts.MinFloor || floor == consts.MaxFloor {
 					ElevatorState.SetDirection(consts.MotorSTOP)
@@ -42,14 +42,14 @@ func stateHandler(floorChan <-chan int, obstructChan, stopChan <-chan bool, butt
 			}
 
 		case obstruct := <-obstructChan:
-			fmt.Printf("%+v\n", obstruct)
+			log.Printf("%+v\n", obstruct)
 			if obstruct != ElevatorState.GetObstruction() {
 				ElevatorState.SetObstruction(obstruct)
 				changed = true
 			}
 
 		case stop := <-stopChan:
-			fmt.Printf("%+v\n", stop)
+			log.Printf("%+v\n", stop)
 			if stop != ElevatorState.GetStopButton() {
 				ElevatorState.SetStopButton(stop)
 
@@ -99,7 +99,7 @@ func SendElevatorToFloor(order consts.ButtonEvent, onFloorChan chan<- bool) {
 			onFloorChan <- true
 			return
 		}
-		time.Sleep(pollRate)
+		time.Sleep(consts.PollRate)
 	}
 }
 
@@ -125,9 +125,15 @@ func Init() (chan consts.ButtonEvent, chan consts.ButtonEvent) {
 	go stateHandler(floorChan, obstructChan, stopChan, buttonsChan, cabButtonChan, hallButtonChan)
 
 	// wait for initialization of elevator
+	setup := true
+	time.Sleep(2 * consts.PollRate) // wait for message exchange
 	for ElevatorState.GetFloor() == -1 {
-		ElevatorState.SetDirection(consts.MotorUP)
-		time.Sleep(pollRate)
+		if setup {
+			ElevatorState.SetDirection(consts.MotorUP)
+			log.Println(consts.Green, "Elevator is moving to floor...", consts.Neutral)
+			setup = false
+		}
+		time.Sleep(consts.PollRate)
 	}
 	ElevatorState.SetDirection(consts.MotorSTOP)
 	return cabButtonChan, hallButtonChan

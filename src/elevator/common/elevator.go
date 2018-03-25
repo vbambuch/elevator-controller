@@ -1,4 +1,4 @@
-package elevator
+package common
 
 import (
 	"consts"
@@ -65,7 +65,7 @@ func (e *Elevator) PeriodicNotifications() {
 		data := consts.PeriodicData{
 			Floor: e.floor,
 			Direction: e.direction,
-			CabQueue: e.cabQueue,
+			CabQueue: GetRawJSON(e.cabQueue),
 			Ready: e.ready,
 		}
 		notification := consts.NotificationData{
@@ -75,10 +75,10 @@ func (e *Elevator) PeriodicNotifications() {
 
 		msg := GetNotification(notification)
 		if e.sendToMaster(msg) {
-			//log.Println(consts.Blue, "-> periodic", data.Ready, consts.Neutral)
+			//log.Println(consts.Blue, "-> periodic", *e.cabQueue, consts.Neutral)
 		}
-		//time.Sleep(1 * time.Second)
-		time.Sleep(pollRate)
+		time.Sleep(1 * time.Second)
+		//time.Sleep(consts.PollRate)
 	}
 }
 

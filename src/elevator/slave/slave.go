@@ -1,9 +1,10 @@
-package elevator
+package slave
 
 import (
 	"net"
 	"sync"
 	"consts"
+	"elevator/common"
 )
 
 var SlaveSingleton = Slave{}
@@ -21,9 +22,9 @@ type Slave struct {
  * receive requests from Master
  */
 func StartSlave(orderChan <-chan consts.ButtonEvent, masterConn *net.UDPConn) {
-	ElevatorState.SetMasterConn(masterConn)
+	common.ElevatorState.SetMasterConn(masterConn)
 
-	go ElevatorState.PeriodicNotifications()
+	go common.ElevatorState.PeriodicNotifications()
 }
 
 
