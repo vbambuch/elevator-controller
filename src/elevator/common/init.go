@@ -76,7 +76,7 @@ func handleReachedDestination(order consts.ButtonEvent)  {
 	ElevatorState.ClearOrderButton(order) // TODO send to master to clear in all elevators
 }
 
-func SendElevatorToFloor(order consts.ButtonEvent, onFloorChan chan<- bool) {
+func SendElevatorToFloor(order consts.ButtonEvent, onFloorChan chan<- bool, interruptCab <-chan bool) {
 	direction := consts.MotorUP
 
 	if ElevatorState.GetFloor() > order.Floor {
@@ -92,14 +92,19 @@ func SendElevatorToFloor(order consts.ButtonEvent, onFloorChan chan<- bool) {
 	ElevatorState.SetReady(false)
 
 	for {
-		floor := ElevatorState.GetFloor()
-
-		if floor == order.Floor {
-			handleReachedDestination(order)
-			onFloorChan <- true
+		select {
+		case <- interruptCab:
 			return
+		default:
+			floor := ElevatorState.GetFloor()
+
+			if floor == order.Floor {
+				handleReachedDestination(order)
+				onFloorChan <- true
+				return
+			}
+			time.Sleep(consts.PollRate)
 		}
-		time.Sleep(consts.PollRate)
 	}
 }
 

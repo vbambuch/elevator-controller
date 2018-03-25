@@ -112,12 +112,8 @@ func (i *SlavesDB) findElevatorOnFloor(floor int) interface{} {
 		}
 	}
 
-	if len(onFloorArray) > 0 {
-		sort.Sort(ByQueue(onFloorArray))
-		return onFloorArray[0]
-	}
-
-	return nil
+	// get elevator with the shortest cab queue
+	return getShortestQueueElevator(onFloorArray)
 }
 
 func (i *SlavesDB) findFreeElevator() interface{} {
@@ -151,12 +147,8 @@ func (i *SlavesDB) findSameDirection(order consts.ButtonEvent) interface{} {
 		}
 	}
 
-	if len(suitableArray) > 0 {
-		sort.Sort(ByQueue(suitableArray))
-		return suitableArray[0]
-	}
-
-	return nil
+	// get elevator with the shortest cab queue
+	return getShortestQueueElevator(suitableArray)
 }
 
 /**
@@ -179,7 +171,7 @@ func (i *SlavesDB) findElevator(order consts.ButtonEvent) interface{} {
 	}
 
 	if elevator != nil {
-		log.Println(consts.White, "Found: elevator", message, consts.Neutral)
+		log.Println(consts.Yellow, "Found: elevator", message, consts.Neutral)
 	}
 
 	return elevator
@@ -200,4 +192,12 @@ func suitableElevator(cabArray []consts.ButtonEvent, currFloor int, hallOrder co
 		}
 	}
 	return false
+}
+
+func getShortestQueueElevator(suitableArray []dbItem) interface{} {
+	if len(suitableArray) > 0 {
+		sort.Sort(ByQueue(suitableArray))
+		return suitableArray[0]
+	}
+	return nil
 }
