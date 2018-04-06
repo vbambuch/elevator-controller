@@ -73,10 +73,10 @@ func (m *Master) masterOrderHandler() {
 					ip: item.ip,
 					ignore: 10,
 					data: consts.PeriodicData{
-						Floor:      item.data.Floor,
-						Direction:  item.data.Direction,
-						CabArray:   item.data.CabArray,
-						Ready:      false,
+						Floor:     item.data.Floor,
+						Direction: item.data.Direction,
+						CabArray:  item.data.CabArray,
+						Free:      false,
 					},
 				})
 
@@ -140,7 +140,7 @@ func (m *Master) listenIncomingMsg(conn *net.UDPConn) {
 				//	Floor:      data.Floor,
 				//	Direction:  data.Direction,
 				//	OrderArray: data.CabArray,
-				//	Ready:      data.Ready,
+				//	Free:      data.Free,
 				//}
 
 				//data.OrderArray = queue

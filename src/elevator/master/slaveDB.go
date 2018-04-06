@@ -17,16 +17,16 @@ func (a ByQueue) Less(i, j int) bool { return len(a[i].data.CabArray) < len(a[j]
 
 
 // Database of slaves
-type SlaveData struct {
-	Floor      int
-	Direction  consts.MotorDirection
-	OrderArray []consts.ButtonEvent
-	Ready      bool
-}
+//type SlaveData struct {
+//	Floor      int
+//	Direction  consts.MotorDirection
+//	OrderArray []consts.ButtonEvent
+//	Free      bool
+//}
 
 type dbItem struct {
 	ip     string
-	ignore int
+	ignore int		//ignore number of incoming messages
 	data   consts.PeriodicData
 }
 
@@ -44,7 +44,7 @@ func (i *SlavesDB) dump() {
 		log.Println(consts.Yellow, "floor:", data.Floor, consts.Neutral)
 		log.Println(consts.Yellow, "direction:", data.Direction, consts.Neutral)
 		log.Println(consts.Yellow, "queue:", data.CabArray, consts.Neutral)
-		log.Println(consts.Yellow, "ready:", data.Ready, consts.Neutral)
+		log.Println(consts.Yellow, "ready:", data.Free, consts.Neutral)
 	}
 }
 
@@ -68,7 +68,7 @@ func (i *SlavesDB) update(item dbItem) {
 		v := e.Value.(dbItem)
 		if v.ip == item.ip {
 			//queue := v.data.OrderArray // keep previous queue
-			//log.Println(consts.White, "db item", v.ignore, v.data.Ready)
+			//log.Println(consts.White, "db item", v.ignore, v.data.Free)
 			//log.Printf("db item %+v", v.data.OrderArray.Len())
 
 			if v.ignore > 0 {
@@ -92,7 +92,7 @@ func (i *SlavesDB) storeData(ip string, data consts.PeriodicData)  {
 	item := dbItem{ip, 0,data}
 	if i.exists(ip) {
 		i.update(item)
-		//log.Println(consts.White, "db item", item.data.Ready)
+		//log.Println(consts.White, "db item", item.data.Free)
 	} else {
 		i.list.PushBack(item)
 	}
@@ -107,7 +107,7 @@ func (i *SlavesDB) findElevatorOnFloor(floor int) interface{} {
 	var onFloorArray []dbItem
 	for e := i.list.Front(); e != nil; e = e.Next() {
 		elItem := e.Value.(dbItem)
-		if elItem.data.Floor == floor && elItem.data.Ready {
+		if elItem.data.Floor == floor && elItem.data.Free {
 			onFloorArray = append(onFloorArray, elItem)
 		}
 	}
@@ -124,7 +124,7 @@ func (i *SlavesDB) findFreeElevator() interface{} {
 		item := e.Value.(dbItem)
 		//log.Println(consts.White, "db item", item)
 
-		if item.data.Ready {
+		if item.data.Free {
 			return item
 		}
 	}

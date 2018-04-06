@@ -89,7 +89,7 @@ func SendElevatorToFloor(order consts.ButtonEvent, onFloorChan chan<- bool, inte
 
 	ElevatorState.SetDoorLight(false)
 	ElevatorState.SetDirection(direction)
-	ElevatorState.SetReady(false)
+	ElevatorState.SetFree(false)
 
 	for {
 		select {

@@ -26,5 +26,5 @@ type PeriodicData struct {
 	Floor     int
 	Direction MotorDirection
 	CabArray  []ButtonEvent
-	Ready     bool
+	Free      bool
 }

@@ -39,11 +39,11 @@ type Elevator struct {
 	obstruction   bool
 	doorLight     bool
 	//hallQueue     *consts.Queue
-	cabQueue      *consts.Queue
-	mux           sync.Mutex
-	role 		  consts.Role
-	masterConn	  *net.UDPConn
-	ready		  bool
+	cabQueue   *consts.Queue
+	mux        sync.Mutex
+	role       consts.Role
+	masterConn *net.UDPConn
+	free       bool
 }
 
 
@@ -67,7 +67,7 @@ func (e *Elevator) PeriodicNotifications() {
 			Floor:     e.floor,
 			Direction: e.direction,
 			CabArray:  helper.QueueToArray(*e.cabQueue),
-			Ready:     e.ready,
+			Free:      e.free,
 		}
 		notification := consts.NotificationData{
 			Code: consts.SlavePeriodicMsg,
@@ -145,7 +145,7 @@ func (e *Elevator) ListenIncomingMsg(receivedHallChan chan<- consts.ButtonEvent)
 
 func (e *Elevator) OrderHandler(cabButtonChan <-chan consts.ButtonEvent, hallButtonChan <-chan consts.ButtonEvent)  {
 	var timeout = time.NewTimer(0)
-	ready := false
+	free := false
 	popCabCall := true
 	onFloorChan := make(chan bool)
 	interruptCab := make(chan bool)
@@ -155,22 +155,24 @@ func (e *Elevator) OrderHandler(cabButtonChan <-chan consts.ButtonEvent, hallBut
 		case <- onFloorChan:
 			if popCabCall {
 				order := ElevatorState.GetQueue().Pop()
-				log.Println(consts.Blue, "Clear cab order", order, consts.Neutral)
+				if order != nil {
+					log.Println(consts.Blue, "Clear cab order", order, consts.Neutral)
+				}
 			} else {
 				popCabCall = true
 			}
 			timeout.Reset(3 * time.Second)
 		case <- timeout.C:
-			//log.Println(consts.Blue, "Elevator ready", consts.Neutral)
+			//log.Println(consts.Blue, "Elevator free", consts.Neutral)
 			ElevatorState.SetDoorLight(false)
-			ElevatorState.SetReady(true)
-			ready = true
+			ElevatorState.SetFree(true)
+			free = true
 		case cabOrder := <- cabButtonChan:
-			//if ready {
-			//	log.Println(consts.Blue, "Ready for cab", cabOrder.Floor, consts.Neutral)
+			//if free {
+			//	log.Println(consts.Blue, "Free for cab", cabOrder.Floor, consts.Neutral)
 			//	ElevatorState.GetQueue().Push(cabOrder)
 			//	go SendElevatorToFloor(cabOrder, onFloorChan)
-			//	ready = false
+			//	free = false
 			//} else {
 				log.Println(consts.Blue, "Pushed to cab queue", cabOrder, consts.Neutral)
 			// TODO ElevatorState.PushToQueue(cabOrder) + check if cab order exists
@@ -180,52 +182,28 @@ func (e *Elevator) OrderHandler(cabButtonChan <-chan consts.ButtonEvent, hallBut
 			//}
 
 		case hallOrder := <- hallButtonChan:
-			if ready {
-				log.Println(consts.Blue, "Ready for hall", hallOrder.Floor, consts.Neutral)
+			if free {
+				log.Println(consts.Blue, "Free for hall", hallOrder.Floor, consts.Neutral)
 				go SendElevatorToFloor(hallOrder, onFloorChan, interruptCab)
-				ready = false
+				free = false
 			} else {
 
 				log.Println(consts.Blue, "Interrupt and hall", hallOrder.Floor, consts.Neutral)
 				go SendElevatorToFloor(hallOrder, onFloorChan, interruptCab)
 				popCabCall = false
-				ready = false
+				free = false
 				//log.Println(consts.Red, "Slave received another hall queue", hallOrder, consts.Neutral)
 				//log.Println(consts.Blue, "Pushed to hall queue", hallOrder, consts.Neutral)
 				//ElevatorState.GetQueue(consts.HallQueue).Push(order)
 			}
 
-		//case state := <-orderChan:
-		//	log.Println(consts.Blue, "New state", consts.Neutral)
-		//
-		//
-		//	if order.Button != consts.DefaultValue {
-		//		log.Println(consts.Blue, "not default", consts.Neutral)
-		//
-		//		floor := state.GetFloor()
-		//		floorChan <- floor
-		//		log.Println(consts.Blue, "after", consts.Neutral)
-		//
-		//	}
-
-
 		default:
-			//if ElevatorState.GetQueue(consts.HallQueue).Len() != 0 &&
-			//	ElevatorState.GetQueue(consts.CabArray).Len() == 0 &&
-			//	ready {
-
-			//	// pop order from hall queue
-			//	queueOrder := ElevatorState.GetQueue(consts.HallQueue).Pop().(consts.ButtonEvent)
-			//	log.Println(consts.Blue, "Pop from hall queue", queueOrder, consts.Neutral)
-			//	go SendElevatorToFloor(queueOrder, floorChan, onFloorChan)
-			//	ready = false
-
-			if ElevatorState.GetQueue().Len() != 0 && ready {
+			if ElevatorState.GetQueue().Len() != 0 && free {
 				// pop order from cab queue
 				queueOrder := ElevatorState.GetQueue().Peek().(consts.ButtonEvent)
 				log.Println(consts.Blue, "Read from cab queue", queueOrder, consts.Neutral)
 				go SendElevatorToFloor(queueOrder, onFloorChan, interruptCab)
-				ready = false
+				free = false
 			}
 		}
 
@@ -307,10 +285,10 @@ func (e *Elevator) SetMasterConn(conn *net.UDPConn) {
 	e.masterConn = conn
 }
 
-func (e *Elevator) SetReady(ready bool) {
+func (e *Elevator) SetFree(free bool) {
 	e.mux.Lock()
 	defer e.mux.Unlock()
-	e.ready = ready
+	e.free = free
 }
 
 
@@ -386,8 +364,8 @@ func (e *Elevator) GetMasterConn() (*net.UDPConn) {
 	return e.masterConn
 }
 
-func (e *Elevator) GetReady() (bool) {
+func (e *Elevator) GetFree() (bool) {
 	e.mux.Lock()
 	defer e.mux.Unlock()
-	return e.ready
+	return e.free
 }
