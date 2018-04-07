@@ -23,8 +23,9 @@ type NotificationData struct {
 
 // one type of data sending inside "NotificationData.Data"
 type PeriodicData struct {
-	Floor     int
-	Direction MotorDirection
-	CabArray  []ButtonEvent
-	Free      bool
+	Floor          int
+	Direction      MotorDirection
+	CabArray       []ButtonEvent
+	Free           bool // elevator stopped on a floor and has empty cab call array
+	HallProcessing bool // elevator is processing hall order
 }

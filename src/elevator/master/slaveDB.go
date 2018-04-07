@@ -140,7 +140,7 @@ func (i *SlavesDB) findSameDirection(order consts.ButtonEvent) interface{} {
 		item := e.Value.(dbItem)
 		//log.Println(consts.White, "db item", item)
 
-		if suitableElevator(item.data.CabArray, item.data.Floor, order) {
+		if !item.data.HallProcessing && suitableElevator(item.data.CabArray, item.data.Floor, order) {
 			suitableArray = append(suitableArray, item)
 		} else {
 		//log.Println(consts.Yellow, "not suitable", item.data.CabArray, consts.Neutral)

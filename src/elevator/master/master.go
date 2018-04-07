@@ -53,7 +53,7 @@ func (m *Master) broadcastToSlaves(notification consts.NotificationData) {
 	conn.Write(data)
 }
 
-func (m *Master) masterOrderHandler() {
+func (m *Master) masterHallOrderHandler() {
 	db := m.GetDB()
 
 	for {
@@ -73,10 +73,11 @@ func (m *Master) masterOrderHandler() {
 					ip: item.ip,
 					ignore: 10,
 					data: consts.PeriodicData{
-						Floor:     item.data.Floor,
-						Direction: item.data.Direction,
-						CabArray:  item.data.CabArray,
-						Free:      false,
+						Floor:          item.data.Floor,
+						Direction:      item.data.Direction,
+						CabArray:       item.data.CabArray,
+						Free:           false,
+						HallProcessing: true,
 					},
 				})
 
@@ -189,7 +190,7 @@ func StartMaster(masterConn *net.UDPConn, listenConn *net.UDPConn) {
 	}
 
 	go master.listenIncomingMsg(listenConn)
-	go master.masterOrderHandler()
+	go master.masterHallOrderHandler()
 }
 
 

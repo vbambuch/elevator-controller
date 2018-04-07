@@ -17,7 +17,7 @@ var ElevatorState = Elevator {
 	consts.MotorSTOP,
 	consts.DefaultValue,
 	consts.DefaultValue,
-	consts.ButtonEvent{consts.DefaultValue, consts.DefaultValue},
+	//consts.ButtonEvent{consts.DefaultValue, consts.DefaultValue},
 	false,
 	false,
 	false,
@@ -27,23 +27,25 @@ var ElevatorState = Elevator {
 	consts.Slave,
 	nil,
 	true,
+	false,
 }
 
 type Elevator struct {
-	direction     consts.MotorDirection
-	prevDirection consts.MotorDirection
-	floor         int
-	prevFloor     int
-	hallOrder     consts.ButtonEvent
-	stopButton    bool
-	obstruction   bool
-	doorLight     bool
+	direction     	consts.MotorDirection
+	prevDirection 	consts.MotorDirection
+	floor         	int
+	prevFloor     	int
+	//hallOrder     	consts.ButtonEvent
+	stopButton    	bool
+	obstruction   	bool
+	doorLight     	bool
 	//hallQueue     *consts.Queue
-	cabQueue   *consts.Queue
-	mux        sync.Mutex
-	role       consts.Role
-	masterConn *net.UDPConn
-	free       bool
+	cabQueue       *consts.Queue
+	mux            sync.Mutex
+	role           consts.Role
+	masterConn     *net.UDPConn
+	free           bool
+	hallProcessing bool
 }
 
 
@@ -64,10 +66,11 @@ func (e *Elevator) sendToMaster(data consts.Notification) bool {
 func (e *Elevator) PeriodicNotifications() {
 	for {
 		data := consts.PeriodicData{
-			Floor:     e.floor,
-			Direction: e.direction,
-			CabArray:  helper.QueueToArray(*e.cabQueue),
-			Free:      e.free,
+			Floor:          e.floor,
+			Direction:      e.direction,
+			CabArray:       helper.QueueToArray(*e.cabQueue),
+			Free:           e.free,
+			HallProcessing: e.hallProcessing,
 		}
 		notification := consts.NotificationData{
 			Code: consts.SlavePeriodicMsg,
@@ -161,12 +164,18 @@ func (e *Elevator) OrderHandler(cabButtonChan <-chan consts.ButtonEvent, hallBut
 			} else {
 				popCabCall = true
 			}
+
 			timeout.Reset(3 * time.Second)
 		case <- timeout.C:
 			//log.Println(consts.Blue, "Elevator free", consts.Neutral)
 			ElevatorState.SetDoorLight(false)
 			ElevatorState.SetFree(true)
 			free = true
+
+			if ElevatorState.GetHallProcessing() {
+				ElevatorState.SetHallProcessing(false)
+			}
+
 		case cabOrder := <- cabButtonChan:
 			//if free {
 			//	log.Println(consts.Blue, "Free for cab", cabOrder.Floor, consts.Neutral)
@@ -182,6 +191,7 @@ func (e *Elevator) OrderHandler(cabButtonChan <-chan consts.ButtonEvent, hallBut
 			//}
 
 		case hallOrder := <- hallButtonChan:
+			ElevatorState.SetHallProcessing(true)
 			if free {
 				log.Println(consts.Blue, "Free for hall", hallOrder.Floor, consts.Neutral)
 				go SendElevatorToFloor(hallOrder, onFloorChan, interruptCab)
@@ -291,6 +301,12 @@ func (e *Elevator) SetFree(free bool) {
 	e.free = free
 }
 
+func (e *Elevator) SetHallProcessing(processing bool) {
+	e.mux.Lock()
+	defer e.mux.Unlock()
+	e.hallProcessing = processing
+}
+
 
 
 /**
@@ -368,4 +384,10 @@ func (e *Elevator) GetFree() (bool) {
 	e.mux.Lock()
 	defer e.mux.Unlock()
 	return e.free
+}
+
+func (e *Elevator) GetHallProcessing() (bool) {
+	e.mux.Lock()
+	defer e.mux.Unlock()
+	return e.hallProcessing
 }
