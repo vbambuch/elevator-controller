@@ -34,10 +34,16 @@ func stateHandler(floorChan <-chan int, obstructChan, stopChan <-chan bool, butt
 		case floor := <-floorChan:
 			//log.Printf("floor: %+v\n", floor)
 			if floor != ElevatorState.GetFloor() {
-				if floor == consts.MinFloor || floor == consts.MaxFloor {
+				if floor == consts.MinFloor || floor == consts.MaxFloor &&
+					ElevatorState.GetDirection() != consts.MotorSTOP {
 					ElevatorState.SetDirection(consts.MotorSTOP)
+					ElevatorState.SetFloorIndicator(floor)
+				} else if floor == consts.MiddleFloor {
+					ElevatorState.SetMiddleFloor(true)
+				} else {
+					ElevatorState.SetMiddleFloor(false)
+					ElevatorState.SetFloorIndicator(floor)
 				}
-				ElevatorState.SetFloorIndicator(floor)
 				changed = true
 			}
 
@@ -74,6 +80,11 @@ func handleReachedDestination(order consts.ButtonEvent)  {
 	ElevatorState.SetDirection(consts.MotorSTOP)
 	ElevatorState.SetDoorLight(true)
 	ElevatorState.ClearOrderButton(order) // TODO send to master to clear in all elevators
+
+	if order.Button == consts.ButtonCAB {
+		ElevatorState.DeleteOrder(order)
+		log.Println(consts.Blue, "Clear cab order", order, consts.Neutral)
+	}
 }
 
 func SendElevatorToFloor(order consts.ButtonEvent, onFloorChan chan<- bool, interruptCab <-chan bool) {
@@ -94,6 +105,7 @@ func SendElevatorToFloor(order consts.ButtonEvent, onFloorChan chan<- bool, inte
 	for {
 		select {
 		case <- interruptCab:
+			log.Println(consts.Yellow, "Interrupt:", order, consts.Neutral)
 			return
 		default:
 			floor := ElevatorState.GetFloor()
@@ -102,6 +114,8 @@ func SendElevatorToFloor(order consts.ButtonEvent, onFloorChan chan<- bool, inte
 				handleReachedDestination(order)
 				onFloorChan <- true
 				return
+			} else {
+				//log.Println(consts.Red, "floor:", floor, consts.Neutral)
 			}
 			time.Sleep(consts.PollRate)
 		}
@@ -132,7 +146,7 @@ func Init() (chan consts.ButtonEvent, chan consts.ButtonEvent) {
 	// wait for initialization of elevator
 	setup := true
 	time.Sleep(2 * consts.PollRate) // wait for message exchange
-	for ElevatorState.GetFloor() == -1 {
+	for ElevatorState.GetFloor() == consts.MiddleFloor {
 		if setup {
 			ElevatorState.SetDirection(consts.MotorUP)
 			log.Println(consts.Green, "Elevator is moving to floor...", consts.Neutral)

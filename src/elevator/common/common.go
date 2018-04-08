@@ -7,8 +7,6 @@ import (
 )
 
 func GetNotification(d interface{}) (consts.Notification) {
-
-	//d := NotificationData{e.floor, e.direction, e.cabQueue}
 	data, err := json.Marshal(d)
 	helper.HandleError(err, "JSON error")
 

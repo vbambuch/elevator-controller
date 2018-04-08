@@ -5,12 +5,13 @@ import "time"
 const MinFloor = 0
 const MaxFloor = 3
 const NumFloors = MaxFloor + 1
+const MiddleFloor = -1
 
 const Address = "localhost"
 const Port = "15657"
 
 // Elevator consts
-const DefaultValue = -1
+const DefaultValue = -2
 var DefaultButton = ButtonEvent{DefaultValue, DefaultValue}
 type MotorDirection int
 const PollRate = 20 * time.Millisecond

@@ -8,6 +8,9 @@ import (
 	"net"
 	"network"
 	"log"
+	//"helper"
+	//"container/list"
+	"sort"
 	"helper"
 )
 
@@ -17,12 +20,13 @@ var ElevatorState = Elevator {
 	consts.MotorSTOP,
 	consts.DefaultValue,
 	consts.DefaultValue,
+	false,
 	//consts.ButtonEvent{consts.DefaultValue, consts.DefaultValue},
 	false,
 	false,
 	false,
 	//helper.NewQueue(),
-	consts.NewQueue(),
+	[]consts.ButtonEvent{},
 	sync.Mutex{},
 	consts.Slave,
 	nil,
@@ -35,12 +39,13 @@ type Elevator struct {
 	prevDirection 	consts.MotorDirection
 	floor         	int
 	prevFloor     	int
+	middleFloor		bool
 	//hallOrder     	consts.ButtonEvent
 	stopButton    	bool
 	obstruction   	bool
 	doorLight     	bool
 	//hallQueue     *consts.Queue
-	cabQueue       *consts.Queue
+	cabArray       []consts.ButtonEvent
 	mux            sync.Mutex
 	role           consts.Role
 	masterConn     *net.UDPConn
@@ -68,7 +73,7 @@ func (e *Elevator) PeriodicNotifications() {
 		data := consts.PeriodicData{
 			Floor:          e.floor,
 			Direction:      e.direction,
-			CabArray:       helper.QueueToArray(*e.cabQueue),
+			CabArray:       e.cabArray,
 			Free:           e.free,
 			HallProcessing: e.hallProcessing,
 		}
@@ -79,7 +84,7 @@ func (e *Elevator) PeriodicNotifications() {
 
 		msg := GetNotification(notification)
 		if e.sendToMaster(msg) {
-			//log.Println(consts.Blue, "-> periodic", *e.cabQueue, consts.Neutral)
+			//log.Println(consts.Blue, "-> periodic", *e.cabArray, consts.Neutral)
 		}
 		//time.Sleep(1 * time.Second)
 		time.Sleep(consts.PollRate)
@@ -149,46 +154,34 @@ func (e *Elevator) ListenIncomingMsg(receivedHallChan chan<- consts.ButtonEvent)
 func (e *Elevator) OrderHandler(cabButtonChan <-chan consts.ButtonEvent, hallButtonChan <-chan consts.ButtonEvent)  {
 	var timeout = time.NewTimer(0)
 	free := false
-	popCabCall := true
+	cabInterrupted := false
 	onFloorChan := make(chan bool)
 	interruptCab := make(chan bool)
 
 	for {
 		select {
 		case <- onFloorChan:
-			if popCabCall {
-				order := ElevatorState.GetQueue().Pop()
-				if order != nil {
-					log.Println(consts.Blue, "Clear cab order", order, consts.Neutral)
-				}
-			} else {
-				popCabCall = true
-			}
-
 			timeout.Reset(3 * time.Second)
 		case <- timeout.C:
-			//log.Println(consts.Blue, "Elevator free", consts.Neutral)
 			ElevatorState.SetDoorLight(false)
 			ElevatorState.SetFree(true)
 			free = true
 
+			// elevator is ready for another hall call
 			if ElevatorState.GetHallProcessing() {
 				ElevatorState.SetHallProcessing(false)
 			}
 
 		case cabOrder := <- cabButtonChan:
-			//if free {
-			//	log.Println(consts.Blue, "Free for cab", cabOrder.Floor, consts.Neutral)
-			//	ElevatorState.GetQueue().Push(cabOrder)
-			//	go SendElevatorToFloor(cabOrder, onFloorChan)
-			//	free = false
-			//} else {
+			if !ElevatorState.OrderExists(cabOrder) {
+				if ElevatorState.GetDirection() != consts.MotorSTOP {
+					interruptCab <- true
+					cabInterrupted = true
+				}
 				log.Println(consts.Blue, "Pushed to cab queue", cabOrder, consts.Neutral)
-			// TODO ElevatorState.PushToQueue(cabOrder) + check if cab order exists
-			// TODO sort cab calls by floor => not queue
-
-				ElevatorState.GetQueue().Push(cabOrder)
-			//}
+				ElevatorState.InsertToCabArray(cabOrder)
+				log.Println(consts.Yellow, "Curr cab array:", ElevatorState.GetCabArray(), consts.Neutral)
+			}
 
 		case hallOrder := <- hallButtonChan:
 			ElevatorState.SetHallProcessing(true)
@@ -197,31 +190,113 @@ func (e *Elevator) OrderHandler(cabButtonChan <-chan consts.ButtonEvent, hallBut
 				go SendElevatorToFloor(hallOrder, onFloorChan, interruptCab)
 				free = false
 			} else {
-
+				interruptCab <- true
 				log.Println(consts.Blue, "Interrupt and hall", hallOrder.Floor, consts.Neutral)
 				go SendElevatorToFloor(hallOrder, onFloorChan, interruptCab)
-				popCabCall = false
 				free = false
-				//log.Println(consts.Red, "Slave received another hall queue", hallOrder, consts.Neutral)
-				//log.Println(consts.Blue, "Pushed to hall queue", hallOrder, consts.Neutral)
-				//ElevatorState.GetQueue(consts.HallQueue).Push(order)
 			}
 
 		default:
-			if ElevatorState.GetQueue().Len() != 0 && free {
-				// pop order from cab queue
-				queueOrder := ElevatorState.GetQueue().Peek().(consts.ButtonEvent)
+			if len(ElevatorState.GetCabArray()) != 0 && (free || cabInterrupted) {
+				// get first cab order
+				queueOrder := ElevatorState.GetCabOrder()
 				log.Println(consts.Blue, "Read from cab queue", queueOrder, consts.Neutral)
 				go SendElevatorToFloor(queueOrder, onFloorChan, interruptCab)
 				free = false
+				cabInterrupted = false
 			}
 		}
-
 	}
 }
 
 
 
+
+
+/**
+ * List manipulation methods.
+ */
+func (e *Elevator) OrderExists(order consts.ButtonEvent) bool {
+	e.mux.Lock()
+	defer e.mux.Unlock()
+	for _, v := range e.cabArray {
+		if v.Floor == order.Floor { return true }
+	}
+	return false
+}
+func (e *Elevator) GetCabArray() ([]consts.ButtonEvent) {
+	e.mux.Lock()
+	defer e.mux.Unlock()
+	return e.cabArray
+}
+
+// insert order to sorted list
+func (e *Elevator) InsertToCabArray(order consts.ButtonEvent) {
+	e.mux.Lock()
+	defer e.mux.Unlock()
+	e.cabArray = append(e.cabArray, order)
+}
+
+// get first element regarding to direction of elevator
+func (e *Elevator) GetCabOrder() (consts.ButtonEvent) {
+	e.mux.Lock()
+	defer e.mux.Unlock()
+
+	// find out where elevator is going
+	movingUP := e.direction == consts.MotorUP || e.prevDirection == consts.MotorUP
+	movingDOWN := e.direction == consts.MotorDOWN || e.prevDirection == consts.MotorDOWN
+
+	orderCount := len(e.cabArray)
+
+	if orderCount == 1 {
+		return e.cabArray[0]
+	} else if movingUP {
+		sort.Sort(helper.ASCFloors(e.cabArray))
+	} else if movingDOWN {
+		sort.Sort(helper.DESCFloors(e.cabArray))
+	}
+
+	for _, v := range e.cabArray {
+		if (movingUP && v.Floor > e.floor) || (movingDOWN && v.Floor < e.floor) {
+			// order is in the same direction as elevator
+			return v
+		} else if v.Floor == e.floor && !e.middleFloor {
+			// order is from the same floor as elevator
+			return v
+		}
+	}
+	// all orders are in opposite direction => return last order (first in opposite direction)
+	return e.cabArray[orderCount - 1]
+}
+
+func (e *Elevator) DeleteFirstElement() (interface{}) {
+	var toRemove interface{}
+	log.Println(consts.Yellow, "Prev cab array:", ElevatorState.GetCabArray(), consts.Neutral)
+
+	e.mux.Lock()
+	if len(e.cabArray) != 0 {
+		toRemove = e.cabArray[0]
+		e.cabArray = e.cabArray[1:]
+	}
+	e.mux.Unlock()
+
+	log.Println(consts.Yellow, "Curr cab array:", ElevatorState.GetCabArray(), consts.Neutral)
+	return toRemove
+}
+
+func (e *Elevator) DeleteOrder(order consts.ButtonEvent) {
+	//log.Println(consts.Yellow, "Prev cab array:", ElevatorState.GetCabArray(), consts.Neutral)
+
+	e.mux.Lock()
+	for i, v := range e.cabArray {
+		if v.Floor == order.Floor { // delete order
+			e.cabArray = append(e.cabArray[:i], e.cabArray[i+1:]...)
+		}
+	}
+	e.mux.Unlock()
+
+	//log.Println(consts.Yellow, "Curr cab array:", ElevatorState.GetCabArray(), consts.Neutral)
+}
 
 
 /**
@@ -238,7 +313,7 @@ func (e *Elevator) SetDirection(direction consts.MotorDirection) {
 
 func (e *Elevator) SetFloorIndicator(floor int) {
 	e.mux.Lock()
-	if e.prevFloor == -1 {
+	if e.prevFloor == consts.DefaultValue {
 		e.prevFloor = floor
 	} else {
 		e.prevFloor = e.floor
@@ -246,6 +321,12 @@ func (e *Elevator) SetFloorIndicator(floor int) {
 	e.floor = floor
 	e.mux.Unlock()
 	WriteFloorIndicator(floor)
+}
+
+func (e *Elevator) SetMiddleFloor(a bool) {
+	e.mux.Lock()
+	defer e.mux.Unlock()
+	e.middleFloor = a
 }
 
 //func (e *Elevator) SetHallButton(button consts.ButtonEvent) {
@@ -332,6 +413,11 @@ func (e *Elevator) GetPrevFloor() int {
 	defer e.mux.Unlock()
 	return e.prevFloor
 }
+func (e *Elevator) IsMiddleFloor() bool {
+	e.mux.Lock()
+	defer e.mux.Unlock()
+	return e.middleFloor
+}
 //func (e *Elevator) GetOrderButton() consts.ButtonEvent {
 //	e.mux.Lock()
 //	defer e.mux.Unlock()
@@ -352,21 +438,16 @@ func (e *Elevator) GetDoorLight() bool {
 	defer e.mux.Unlock()
 	return e.doorLight
 }
-//func (i *Elevator) GetQueue(qt consts.QueueType) *helper.Queue {
+//func (i *Elevator) InsertToCabArray(qt consts.QueueType) *helper.Queue {
 //	i.mux.Lock()
 //	defer i.mux.Unlock()
 //	queue := i.hallQueue
 //	if qt == consts.CabArray {
-//		queue = i.cabQueue
+//		queue = i.cabArray
 //	}
 //	return queue
 //}
 
-func (e *Elevator) GetQueue() *consts.Queue {
-	e.mux.Lock()
-	defer e.mux.Unlock()
-	return e.cabQueue
-}
 
 func (e *Elevator) GetRole() (consts.Role) {
 	e.mux.Lock()

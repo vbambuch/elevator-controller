@@ -81,12 +81,12 @@ func PollButtons(receiver chan<- consts.ButtonEvent) {
 }
 
 func PollFloorSensor(receiver chan<- int) {
-	prev := -1
+	prev := consts.DefaultValue
 	for {
 		time.Sleep(consts.PollRate)
 		//fmt.Println("Poll sensor")
 		v := ReadFloor()
-		if v != prev && v != -1 {
+		if v != prev {
 			receiver <- v
 		}
 		prev = v
@@ -139,7 +139,7 @@ func ReadFloor() int {
 	if buf[1] != 0 {
 		return int(buf[2])
 	} else {
-		return -1
+		return consts.MiddleFloor
 	}
 }
 
