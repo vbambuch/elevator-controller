@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"time"
 	"net"
-	"network"
 	"log"
 	//"helper"
 	//"container/list"
@@ -68,9 +67,10 @@ func (e *Elevator) sendToMaster(data consts.Notification) bool {
 	return false
 }
 
-func (e *Elevator) PeriodicNotifications() {
+func (e *Elevator) PeriodicNotifications(ipAddr string) {
 	for {
 		data := consts.PeriodicData{
+			ListenIP:       ipAddr,
 			Floor:          e.floor,
 			Direction:      e.direction,
 			CabArray:       e.cabArray,
@@ -106,8 +106,7 @@ func (e *Elevator) HallOrderNotifications(sendHallChan <-chan consts.ButtonEvent
 	}
 }
 
-func (e *Elevator) ListenIncomingMsg(receivedHallChan chan<- consts.ButtonEvent) {
-	conn := network.GetSlaveTestListenConn()
+func (e *Elevator) ListenIncomingMsg(receivedHallChan chan<- consts.ButtonEvent, conn *net.UDPConn) {
 	var typeJson consts.NotificationData
 	buffer := make([]byte, 8192)
 	//receivedOrder := make(chan consts.ButtonEvent)

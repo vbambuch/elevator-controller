@@ -8,7 +8,11 @@ const NumFloors = MaxFloor + 1
 const MiddleFloor = -1
 
 const Address = "localhost"
-const Port = "15657"
+var ElevatorPort = "15657" // TODO change back to const
+var MyPort = "20001"       // TODO change back to const
+
+// TODO remove when role decision is ready
+var MasterPort = ""
 
 // Elevator consts
 const DefaultValue = -2
@@ -46,8 +50,8 @@ type Role int
 
 const (
 	Master	Role = 1
-	Backup		 = 0
-	Slave 		 = -1
+	Backup		 = 2
+	Slave 		 = 3
 )
 
 

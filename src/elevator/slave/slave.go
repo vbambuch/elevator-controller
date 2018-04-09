@@ -23,8 +23,6 @@ type Slave struct {
  */
 func StartSlave(orderChan <-chan consts.ButtonEvent, masterConn *net.UDPConn) {
 	common.ElevatorState.SetMasterConn(masterConn)
-
-	go common.ElevatorState.PeriodicNotifications()
 }
 
 

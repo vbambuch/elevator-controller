@@ -19,7 +19,7 @@ func InitIO() {
 		fmt.Println("Driver already initialized!")
 		return
 	}
-	address := strings.Join([]string{consts.Address, consts.Port}, ":")
+	address := strings.Join([]string{consts.Address, consts.ElevatorPort}, ":")
 	mutex = sync.Mutex{}
 	var err error
 	connect, err = net.Dial("tcp", address)

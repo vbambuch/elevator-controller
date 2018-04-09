@@ -22,7 +22,7 @@ func pingElevators(outgoingMsg chan<- consts.Message){
 }
 
 
-//Function for broadcasting the IP address of the Master PC
+//Function for broadcasting the ListenIP address of the Master PC
 func masterNotify(outgoingMsg chan<- consts.Message){
 	const notifyInterval = 2000 * time.Millisecond
 	master := consts.Message{Category: consts.Alive, Addr: consts.Laddr, Master:true, Floor: -1, Button: -1}
@@ -32,7 +32,7 @@ func masterNotify(outgoingMsg chan<- consts.Message){
 	}
 }
 
-//Function for broadcasting the IP address of the Slave PC
+//Function for broadcasting the ListenIP address of the Slave PC
 func slaveNotify(outgoingMsg chan<- consts.Message){
 	const notifyInterval = 2000 * time.Millisecond
 	slave := consts.Message{Category: consts.Alive, Addr: consts.Laddr, Master:false, Floor: -1, Button: -1}

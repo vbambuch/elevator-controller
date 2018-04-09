@@ -1,6 +1,8 @@
 package consts
 
-import "encoding/json"
+import (
+	"encoding/json"
+)
 
 // Notifications
 type Notification []byte
@@ -23,6 +25,7 @@ type NotificationData struct {
 
 // one type of data sending inside "NotificationData.Data"
 type PeriodicData struct {
+	ListenIP       string
 	Floor          int
 	Direction      MotorDirection
 	CabArray       []ButtonEvent

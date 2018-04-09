@@ -1,5 +1,11 @@
 # Elevator project for Team Bambuchistrom
 
+## Helpers
+**Print dependency graph:**
+
+`graphpkg -match 'common|master|slave|network|main|helper|consts'  elevator network main helper consts`
+
+
 ## TODO list
 ### Network stuff
 - [ ] Role decision (who is Master/Backup/Slave)
