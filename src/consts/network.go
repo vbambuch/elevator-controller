@@ -10,7 +10,7 @@ type Message struct {
 	Addr     string //`json:"-"`
 }
 
-//Local IP address
+//Local ListenIP address
 var Laddr string
 
 //Channel for closing connections

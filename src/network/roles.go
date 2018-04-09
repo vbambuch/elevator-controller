@@ -25,46 +25,45 @@ func FindOutNewBackup()  {
 }
 
 // TODO implement
-func GetMasterConn() (*net.UDPConn) {
-	addr, err := net.ResolveUDPAddr("udp", "localhost:12345")
-	helper.HandleError(err, "UDP resolve failed")
+func GetMasterSendConn() (*net.UDPConn) {
+	addr, err := net.ResolveUDPAddr("udp", "localhost:"+consts.MasterPort)
+	helper.HandleError(err, "UDP master resolve failed")
 
 	conn, err := net.DialUDP("udp", nil, addr)
-	helper.HandleError(err, "UDP dial failed")
+	helper.HandleError(err, "UDP master dial failed")
 
 	return conn
 }
 
-func GetListenConn() (*net.UDPConn) {
-	addr, err := net.ResolveUDPAddr("udp", "localhost:12345")
-	helper.HandleError(err, "UDP resolve failed")
+func GetMasterListenConn() (*net.UDPConn) {
+	addr, err := net.ResolveUDPAddr("udp", "localhost:"+consts.MasterPort)
+	helper.HandleError(err, "UDP master resolve failed")
 
 	conn, err := net.ListenUDP("udp", addr)
-	helper.HandleError(err, "UDP listen failed")
+	helper.HandleError(err, "UDP master listen failed")
 
 	return conn
 }
 
+func GetSlaveSendConn(ipAddr string) (*net.UDPConn) {
 
-// TODO delete
-func GetSlaveTestSendConn() (*net.UDPConn) {
-
-	addr, err := net.ResolveUDPAddr("udp", "localhost:50000")
-	helper.HandleError(err, "UDP resolve failed")
+	addr, err := net.ResolveUDPAddr("udp", ipAddr)
+	helper.HandleError(err, "UDP slave resolve failed")
 
 	conn, err := net.DialUDP("udp", nil, addr)
-	helper.HandleError(err, "UDP dial failed")
+	helper.HandleError(err, "UDP slave dial failed")
 
 	return conn
 }
 
-func GetSlaveTestListenConn() (*net.UDPConn) {
 
-	addr, err := net.ResolveUDPAddr("udp", "localhost:50000")
-	helper.HandleError(err, "UDP resolve failed")
+func GetSlaveListenConn(ipAddr string) (*net.UDPConn) {
+
+	addr, err := net.ResolveUDPAddr("udp", ipAddr)
+	helper.HandleError(err, "UDP slave resolve failed")
 
 	conn, err := net.ListenUDP("udp", addr)
-	helper.HandleError(err, "UDP dial failed")
+	helper.HandleError(err, "UDP slave listen failed")
 
 	return conn
 }

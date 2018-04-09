@@ -6,6 +6,8 @@ import (
 	"sync"
 	"log"
 	"sort"
+	"net"
+	"network"
 )
 
 // Sorting dbItems
@@ -25,14 +27,20 @@ func (a ByQueue) Less(i, j int) bool { return len(a[i].data.CabArray) < len(a[j]
 //}
 
 type dbItem struct {
-	ip     string
-	ignore int		//ignore number of incoming messages
-	data   consts.PeriodicData
+	clientConn 		*net.UDPConn
+	ignore 			int		//ignore number of incoming messages
+	data   			consts.PeriodicData
 }
 
 type SlavesDB struct {
 	list list.List		// list of dbItems
 	mux  sync.Mutex
+}
+
+func (i *SlavesDB) getList() (list.List) {
+	i.mux.Lock()
+	defer i.mux.Unlock()
+	return i.list
 }
 
 func (i *SlavesDB) dump() {
@@ -41,10 +49,14 @@ func (i *SlavesDB) dump() {
 
 	for e := i.list.Front(); e != nil; e = e.Next() {
 		data := e.Value.(dbItem).data
+		log.Println(consts.Yellow, "----------", consts.Neutral)
+		log.Println(consts.Yellow, "ip:", data.ListenIP, consts.Neutral)
 		log.Println(consts.Yellow, "floor:", data.Floor, consts.Neutral)
 		log.Println(consts.Yellow, "direction:", data.Direction, consts.Neutral)
 		log.Println(consts.Yellow, "queue:", data.CabArray, consts.Neutral)
 		log.Println(consts.Yellow, "ready:", data.Free, consts.Neutral)
+		log.Println(consts.Yellow, "processing:", data.HallProcessing, consts.Neutral)
+		log.Println(consts.Yellow, "-----", consts.Neutral)
 	}
 }
 
@@ -53,7 +65,8 @@ func (i *SlavesDB) exists(ip string) (bool) {
 	defer i.mux.Unlock()
 
 	for e := i.list.Front(); e != nil; e = e.Next() {
-		if e.Value.(dbItem).ip == ip {
+		el := e.Value.(dbItem)
+		if el.data.ListenIP == ip {
 			return true
 		}
 	}
@@ -66,38 +79,39 @@ func (i *SlavesDB) update(item dbItem) {
 
 	for e := i.list.Front(); e != nil; e = e.Next() {
 		v := e.Value.(dbItem)
-		if v.ip == item.ip {
+		if v.data.ListenIP == item.data.ListenIP {
 			//queue := v.data.OrderArray // keep previous queue
 			//log.Println(consts.White, "db item", v.ignore, v.data.Free)
 			//log.Printf("db item %+v", v.data.OrderArray.Len())
 
 			if v.ignore > 0 {
 				e.Value = dbItem{
-					ip: v.ip,
+					clientConn: v.clientConn,	// keep previous conn
 					ignore: v.ignore -1,
 					data: v.data,
 				}
 			} else {
 				e.Value = dbItem{
-					ip: v.ip,
+					clientConn: v.clientConn,	// keep previous conn
 					ignore: item.ignore,
 					data: item.data,
 				}
 			}
+			return
 		}
 	}
+	//log.Println(consts.Yellow, "trying to push", consts.Neutral)
+
+	clientConn := network.GetSlaveSendConn(item.data.ListenIP)
+	item.clientConn = clientConn
+	i.list.PushBack(item)
+	log.Println(consts.White, "ListenIP:", item.data.ListenIP, consts.Neutral)
+	//log.Println(consts.White, "Conn:", item.clientConn.RemoteAddr(), consts.Neutral)
 }
 
-func (i *SlavesDB) storeData(ip string, data consts.PeriodicData)  {
-	item := dbItem{ip, 0,data}
-	if i.exists(ip) {
-		i.update(item)
-		//log.Println(consts.White, "db item", item.data.Free)
-	} else {
-		i.list.PushBack(item)
-	}
-
-	//log.Println(consts.White, "db", i)
+func (i *SlavesDB) storeData(data consts.PeriodicData)  {
+	item := dbItem{nil,0,data}
+	i.update(item)
 }
 
 func (i *SlavesDB) findElevatorOnFloor(floor int) interface{} {

@@ -7,14 +7,9 @@ import (
 	"time"
 	"log"
 	"encoding/json"
-	"network"
 	"elevator/common"
+	"network"
 )
-
-func getClientIPAddr() (string) {
-	return "localhost"
-}
-
 
 
 // Master
@@ -36,21 +31,26 @@ func (m *Master) GetDB() *SlavesDB {
 	return m.slaveDB
 }
 
-//func (m *Master) sendToSlave(ip string, order consts.ButtonEvent) { //TODO uncomment when ready
-func (m *Master) sendToSlave(notification consts.NotificationData) {
-	conn := network.GetSlaveTestSendConn() // TODO get conn from somewhere
-
+//TODO uncomment when ready
+//func (m *Master) sendToSlave(ip string, order consts.ButtonEvent) {
+func (m *Master) sendToSlave(conn *net.UDPConn, notification consts.NotificationData) {
+	m.mux.Lock()
+	defer m.mux.Unlock()
 	data := common.GetNotification(notification)
-	conn.Write(data)
+	if conn != nil {
+		log.Println(consts.White, "Send to:", conn.RemoteAddr(), consts.Neutral)
+		conn.Write(data)
+	}
 }
 
-func (m *Master) broadcastToSlaves(notification consts.NotificationData) {
-	conn := network.GetSlaveTestSendConn() // TODO user actual broadcast function
-
-	data := common.GetNotification(notification)
-	//log.Println(consts.White, "broadcast", notification)
-
-	conn.Write(data)
+//func (m *Master) broadcastToSlaves(notification consts.NotificationData) {
+func (m *Master) broadcastToSlaves(data consts.NotificationData) {
+	//log.Println(consts.White, "broadcast", n)
+	list := m.GetDB().getList()
+	for el := list.Front(); el != nil; el = el.Next() {
+		conn := el.Value.(dbItem).clientConn
+		m.sendToSlave(conn, data)
+	}
 }
 
 func (m *Master) masterHallOrderHandler() {
@@ -70,9 +70,10 @@ func (m *Master) masterHallOrderHandler() {
 				// ignore next 5 updates from specific slave
 				item := elData.(dbItem)
 				db.update(dbItem{
-					ip: item.ip,
+					clientConn: item.clientConn,
 					ignore: 10,
 					data: consts.PeriodicData{
+						ListenIP:		item.data.ListenIP,
 						Floor:          item.data.Floor,
 						Direction:      item.data.Direction,
 						CabArray:       item.data.CabArray,
@@ -81,17 +82,15 @@ func (m *Master) masterHallOrderHandler() {
 					},
 				})
 
-				//ip := elData.(string) //TODO return non string type - net.Conn maybe?
 				m.GetQueue().Pop()
 				log.Println(consts.White, "parsed order", order, consts.Neutral)
 
-				notification := consts.NotificationData{
+				orderData := consts.NotificationData{
 					Code: consts.MasterHallOrder,
 					Data: common.GetRawJSON(order),
 				}
 
-				// TODO get conn from "item.ip"
-				m.sendToSlave(notification)
+				m.sendToSlave(item.clientConn, orderData)
 			} else {
 				//log.Println(consts.White, "no free elevator")
 			}
@@ -128,26 +127,7 @@ func (m *Master) listenIncomingMsg(conn *net.UDPConn) {
 				data := consts.PeriodicData{} // for parsing of incoming message
 				json.Unmarshal(typeJson.Data, &data)
 
-				//queue := consts.Queue{}
-				//err2 := json.Unmarshal(data.CabArray, &queue)
-				//if err2 != nil {
-				//	log.Println(consts.White, "array unmarshal master failed")
-				//	log.Fatal(err2)
-				//}
-
-				//log.Printf("queue: %+v", queue)
-				//log.Println(consts.White, "<- periodic", queue, consts.Neutral)
-				//slaveData := SlaveData{
-				//	Floor:      data.Floor,
-				//	Direction:  data.Direction,
-				//	OrderArray: data.CabArray,
-				//	Free:      data.Free,
-				//}
-
-				//data.OrderArray = queue
-				ip := getClientIPAddr()
-				//m.GetDB().storeData(ip, slaveData)
-				m.GetDB().storeData(ip, data)
+				m.GetDB().storeData(data)
 
 				//m.GetDB().dump()
 			case consts.SlaveHallOrder:
@@ -156,9 +136,19 @@ func (m *Master) listenIncomingMsg(conn *net.UDPConn) {
 				log.Println(consts.White, "<- hall order", consts.Neutral)
 				m.GetQueue().Push(order)
 
-				// TODO broadcast all slaves to turn on light bulbs
+				//broadcast all slaves to turn on light bulbs
 				notification := consts.NotificationData{
 					Code: consts.MasterHallLight,
+					Data: common.GetRawJSON(order),
+				}
+				m.broadcastToSlaves(notification)
+			case consts.ClearHallOrder:
+				order := consts.ButtonEvent{}
+				json.Unmarshal(typeJson.Data, &order)
+
+				//broadcast all slaves to turn off light bulbs
+				notification := consts.NotificationData{
+					Code: consts.ClearHallOrder,
 					Data: common.GetRawJSON(order),
 				}
 				m.broadcastToSlaves(notification)
@@ -179,8 +169,8 @@ func (m *Master) listenIncomingMsg(conn *net.UDPConn) {
  * ping all slaves/backup
  * do same things as Slave
  */
-func StartMaster(masterConn *net.UDPConn, listenConn *net.UDPConn) {
-	common.ElevatorState.SetMasterConn(masterConn) // master conn has to be available for all roles
+func StartMaster() {
+	listenConn := network.GetMasterListenConn()
 
 	slavesDB := SlavesDB{}
 	master := Master{

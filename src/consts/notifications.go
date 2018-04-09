@@ -1,6 +1,8 @@
 package consts
 
-import "encoding/json"
+import (
+	"encoding/json"
+)
 
 // Notifications
 type Notification []byte
@@ -9,7 +11,7 @@ type notificationCode int
 const (
 	SlavePeriodicMsg  notificationCode = 0
 	SlaveHallOrder                     = 1
-	SlaveReady						   = 5
+	ClearHallOrder					   = 5
 
 	MasterHallLight                    = 2
 	MasterHallOrder                    = 3
@@ -23,6 +25,7 @@ type NotificationData struct {
 
 // one type of data sending inside "NotificationData.Data"
 type PeriodicData struct {
+	ListenIP       string
 	Floor          int
 	Direction      MotorDirection
 	CabArray       []ButtonEvent
