@@ -110,8 +110,6 @@ func (i *SlavesDB) update(item dbItem) {
 }
 
 func (i *SlavesDB) storeData(data consts.PeriodicData)  {
-	i.mux.Lock()
-	defer i.mux.Unlock()
 	item := dbItem{nil,0,data}
 	i.update(item)
 }

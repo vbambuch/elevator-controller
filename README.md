@@ -7,6 +7,13 @@
 
 
 ## TODO list
+### Fault tolerance 
+- [ ] Elevator fails to communicate with controller
+- [ ] Slave fails to communicate with Master
+- [ ] Backup fails to communicate with Master
+- [ ] Master fails to communicate with Slave
+- [ ] Master fails to communicate with Backup
+
 ### Network stuff
 - [ ] Role decision (who is Master/Backup/Slave)
 - [ ] Master

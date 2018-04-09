@@ -24,10 +24,10 @@ func startCommonProcedures(receivedCabChan <-chan consts.ButtonEvent, sendHallCh
 	ipAddr := "localhost:"+consts.MyPort
 	conn := network.GetSlaveListenConn(ipAddr)
 
-	go common.ElevatorState.PeriodicNotifications(ipAddr)
-	go common.ElevatorState.HallOrderNotifications(sendHallChan)
-	go common.ElevatorState.ListenIncomingMsg(receivedHallChan, conn)
-	go common.ElevatorState.OrderHandler(receivedCabChan, receivedHallChan)
+	go common.PeriodicNotifications(ipAddr)
+	go common.HallOrderNotifications(sendHallChan)
+	go common.ListenIncomingMsg(receivedHallChan, conn)
+	go common.OrderHandler(receivedCabChan, receivedHallChan)
 }
 
 func roleChangeHandler(orderChan <-chan consts.ButtonEvent, newRoleChan <-chan bool)  {

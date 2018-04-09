@@ -85,12 +85,12 @@ func (m *Master) masterHallOrderHandler() {
 				m.GetQueue().Pop()
 				log.Println(consts.White, "parsed order", order, consts.Neutral)
 
-				notification := consts.NotificationData{
+				orderData := consts.NotificationData{
 					Code: consts.MasterHallOrder,
 					Data: common.GetRawJSON(order),
 				}
 
-				m.sendToSlave(item.clientConn, notification)
+				m.sendToSlave(item.clientConn, orderData)
 			} else {
 				//log.Println(consts.White, "no free elevator")
 			}
@@ -136,9 +136,19 @@ func (m *Master) listenIncomingMsg(conn *net.UDPConn) {
 				log.Println(consts.White, "<- hall order", consts.Neutral)
 				m.GetQueue().Push(order)
 
-				// TODO broadcast all slaves to turn on light bulbs
+				//broadcast all slaves to turn on light bulbs
 				notification := consts.NotificationData{
 					Code: consts.MasterHallLight,
+					Data: common.GetRawJSON(order),
+				}
+				m.broadcastToSlaves(notification)
+			case consts.ClearHallOrder:
+				order := consts.ButtonEvent{}
+				json.Unmarshal(typeJson.Data, &order)
+
+				//broadcast all slaves to turn off light bulbs
+				notification := consts.NotificationData{
+					Code: consts.ClearHallOrder,
 					Data: common.GetRawJSON(order),
 				}
 				m.broadcastToSlaves(notification)

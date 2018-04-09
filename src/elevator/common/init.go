@@ -3,7 +3,6 @@ package common
 import (
 	"consts"
 	"time"
-	//"helper"
 	"log"
 )
 
@@ -76,51 +75,6 @@ func stateHandler(floorChan <-chan int, obstructChan, stopChan <-chan bool, butt
 	}
 }
 
-func handleReachedDestination(order consts.ButtonEvent)  {
-	ElevatorState.SetDirection(consts.MotorSTOP)
-	ElevatorState.SetDoorLight(true)
-	ElevatorState.ClearOrderButton(order) // TODO send to master to clear in all elevators
-
-	if order.Button == consts.ButtonCAB {
-		ElevatorState.DeleteOrder(order)
-		log.Println(consts.Blue, "Clear cab order", order, consts.Neutral)
-	}
-}
-
-func SendElevatorToFloor(order consts.ButtonEvent, onFloorChan chan<- bool, interruptCab <-chan bool) {
-	direction := consts.MotorUP
-
-	if ElevatorState.GetFloor() > order.Floor {
-		direction = consts.MotorDOWN
-	} else if ElevatorState.GetFloor() == order.Floor {
-		handleReachedDestination(order)
-		onFloorChan <- true
-		return
-	}
-
-	ElevatorState.SetDoorLight(false)
-	ElevatorState.SetDirection(direction)
-	ElevatorState.SetFree(false)
-
-	for {
-		select {
-		case <- interruptCab:
-			log.Println(consts.Yellow, "Interrupt:", order, consts.Neutral)
-			return
-		default:
-			floor := ElevatorState.GetFloor()
-
-			if floor == order.Floor {
-				handleReachedDestination(order)
-				onFloorChan <- true
-				return
-			} else {
-				//log.Println(consts.Red, "floor:", floor, consts.Neutral)
-			}
-			time.Sleep(consts.PollRate)
-		}
-	}
-}
 
 //func Init(stateChan chan<- Elevator, orderChan chan<- consts.ButtonEvent) {
 func Init() (chan consts.ButtonEvent, chan consts.ButtonEvent) {
@@ -146,7 +100,7 @@ func Init() (chan consts.ButtonEvent, chan consts.ButtonEvent) {
 	// wait for initialization of elevator
 	setup := true
 	time.Sleep(2 * consts.PollRate) // wait for message exchange
-	for ElevatorState.GetFloor() == consts.MiddleFloor {
+	for ElevatorState.GetFloor() == consts.DefaultValue {
 		if setup {
 			ElevatorState.SetDirection(consts.MotorUP)
 			log.Println(consts.Green, "Elevator is moving to floor...", consts.Neutral)

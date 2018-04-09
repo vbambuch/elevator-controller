@@ -11,7 +11,7 @@ type notificationCode int
 const (
 	SlavePeriodicMsg  notificationCode = 0
 	SlaveHallOrder                     = 1
-	SlaveReady						   = 5
+	ClearHallOrder					   = 5
 
 	MasterHallLight                    = 2
 	MasterHallOrder                    = 3
