@@ -2,8 +2,11 @@
 
 ## Helpers
 **Print dependency graph:**
+- `graphpkg -match 'common|master|slave|network|main|helper|consts'  elevator network main helper consts`
 
-`graphpkg -match 'common|master|slave|network|main|helper|consts'  elevator network main helper consts`
+**Start elevator and override params:**
+- `./SimElevatorServer --port 20001`
+- `go build src/main/start.go; ./start -masterPort 40000 -myPort 20000 -elPort 20001 -myRole 1`
 
 
 ## TODO list
@@ -18,7 +21,7 @@
 - [ ] Role decision (who is Master/Backup/Slave)
 - [ ] Master
   - [ ] Broadcast its IP address once Master is elected
-  - [ ] Receive Slave's IP addresses and store them
+  - [x] Receive Slave's IP addresses and store them
     - Create UDPConn from IP address as well
   - [ ] Send periodic info about all elevators to Backup
 - [ ] Backup
@@ -27,4 +30,4 @@
   - [ ] Receive global knowledge and store it
 - [ ] Common (for all roles)
   - [ ] Receive Master IP address and store it as UDPConn
-  - [ ] Notify Master and send him own IP address
+  - [x] Notify Master and send him own IP address
