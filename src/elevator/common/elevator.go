@@ -100,7 +100,6 @@ func (e *Elevator) GetCabOrder() (consts.ButtonEvent) {
 	movingDOWN := e.direction == consts.MotorDOWN || e.prevDirection == consts.MotorDOWN
 
 	orderCount := len(e.cabArray)
-
 	if orderCount == 1 {
 		return e.cabArray[0]
 	} else if movingUP {

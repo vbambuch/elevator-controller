@@ -31,14 +31,12 @@ func (m *Master) GetDB() *SlavesDB {
 	return m.slaveDB
 }
 
-//TODO uncomment when ready
-//func (m *Master) sendToSlave(ip string, order consts.ButtonEvent) {
 func (m *Master) sendToSlave(conn *net.UDPConn, notification consts.NotificationData) {
 	m.mux.Lock()
 	defer m.mux.Unlock()
 	data := common.GetNotification(notification)
 	if conn != nil {
-		log.Println(consts.White, "Send to:", conn.RemoteAddr(), consts.Neutral)
+		//log.Println(consts.White, "Send to:", conn.RemoteAddr(), consts.Neutral)
 		conn.Write(data)
 	}
 }

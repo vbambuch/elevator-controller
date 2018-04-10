@@ -5,9 +5,9 @@ import (
 	"container/list"
 	"sync"
 	"log"
-	"sort"
 	"network"
 	"helper"
+	"math"
 )
 
 
@@ -116,14 +116,6 @@ func suitableElevator(cabArray []consts.ButtonEvent, currFloor int, hallOrder co
 	return false
 }
 
-func getShortestQueueElevator(suitableArray []consts.DBItem) interface{} {
-	if len(suitableArray) > 0 {
-		sort.Sort(helper.ByQueue(suitableArray))
-		return suitableArray[0]
-	}
-	return nil
-}
-
 
 func (i *SlavesDB) findElevatorOnFloor(floor int) interface{} {
 	i.mux.Lock()
@@ -138,21 +130,26 @@ func (i *SlavesDB) findElevatorOnFloor(floor int) interface{} {
 	}
 
 	// get elevator with the shortest cab queue
-	return getShortestQueueElevator(onFloorArray)
+	return helper.GetShortestQueueElevator(onFloorArray)
 }
 
 func (i *SlavesDB) findFreeElevator(floor int) interface{} {
 	i.mux.Lock()
 	defer i.mux.Unlock()
 
-	var freeArray []consts.DBItem
+	var freeArray []consts.FreeElevatorItem
 	for e := i.list.Front(); e != nil; e = e.Next() {
 		item := e.Value.(consts.DBItem)
 		if item.Data.Free {
-			freeArray = append(freeArray, item)
+			freeArray = append(freeArray, consts.FreeElevatorItem{
+				FloorDiff: math.Abs(float64(item.Data.Floor) - float64(floor)),
+				Data: item,
+			})
 		}
 	}
-	return nil
+
+	// get the closest elevator
+	return helper.GetLowestDiffElevator(freeArray)
 }
 
 func (i *SlavesDB) findSameDirection(order consts.ButtonEvent) interface{} {
@@ -172,7 +169,7 @@ func (i *SlavesDB) findSameDirection(order consts.ButtonEvent) interface{} {
 	}
 
 	// get elevator with the shortest cab queue
-	return getShortestQueueElevator(suitableArray)
+	return helper.GetShortestQueueElevator(suitableArray)
 }
 
 /**
@@ -195,7 +192,8 @@ func (i *SlavesDB) findElevator(order consts.ButtonEvent) interface{} {
 	}
 
 	if elevator != nil {
-		log.Println(consts.Yellow, "Found: elevator", message, consts.Neutral)
+		ip := elevator.(consts.DBItem).Data.ListenIP
+		log.Println(consts.Yellow, "Found: elevator", message, ip, consts.Neutral)
 	}
 
 	return elevator

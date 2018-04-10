@@ -2,6 +2,7 @@ package helper
 
 import (
 	"consts"
+	"sort"
 )
 
 type ASCFloors []consts.ButtonEvent
@@ -41,3 +42,19 @@ func QueueToArray(queue consts.Queue) ([]consts.ButtonEvent) {
 	return result
 }
 
+
+func GetShortestQueueElevator(suitableArray []consts.DBItem) interface{} {
+	if len(suitableArray) > 0 {
+		sort.Sort(ByQueue(suitableArray))
+		return suitableArray[0]
+	}
+	return nil
+}
+
+func GetLowestDiffElevator(freeArray []consts.FreeElevatorItem) interface{} {
+	if len(freeArray) > 0 {
+		sort.Sort(ByFloorDiff(freeArray))
+		return freeArray[0].Data
+	}
+	return nil
+}

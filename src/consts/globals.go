@@ -59,7 +59,7 @@ const (
 
 // SlaveDB
 type FreeElevatorItem struct {
-	FloorDiff int
+	FloorDiff float64
 	Data      DBItem
 }
 
