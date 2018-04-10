@@ -42,7 +42,6 @@ func QueueToArray(queue consts.Queue) ([]consts.ButtonEvent) {
 	return result
 }
 
-
 func GetShortestQueueElevator(suitableArray []consts.DBItem) interface{} {
 	if len(suitableArray) > 0 {
 		sort.Sort(ByQueue(suitableArray))

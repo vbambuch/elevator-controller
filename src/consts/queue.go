@@ -28,7 +28,10 @@
 
 package consts
 
-import "sync"
+import (
+	"sync"
+	"log"
+)
 
 type queuenode struct {
 	data interface{}
@@ -114,4 +117,34 @@ func (q *Queue) Peek() interface{} {
 	}
 
 	return n.data
+}
+
+// Check if element exists in queue
+func (q *Queue) NewOrder(order ButtonEvent) bool {
+	q.Lock.Lock()
+	tmp := *q
+	q.Lock.Unlock()
+	for el := tmp.Pop(); el != nil; el = tmp.Pop() {
+		data := el.(ButtonEvent)
+		if data.Floor == order.Floor && data.Button == order.Button {
+			//log.Println(Green, "Order:", data, Neutral)
+			return false
+		}
+	}
+	//log.Println(Green, "Is new:", order, Neutral)
+
+	return true
+}
+
+func (q *Queue) Dump() {
+	q.Lock.Lock()
+	tmp := *q
+	q.Lock.Unlock()
+	log.Println(Yellow, "----------", Neutral)
+	for el := tmp.Peek(); el != nil; el = tmp.Pop() {
+		data := el.(ButtonEvent)
+		log.Print(Yellow, "Floor:", data.Floor, " Button:", data.Button, Neutral)
+	}
+	log.Println()
+	log.Println(Yellow, "-----", Neutral)
 }

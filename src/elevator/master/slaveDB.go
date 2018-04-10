@@ -97,7 +97,7 @@ func (i *SlavesDB) storeData(data consts.PeriodicData)  {
 
 
 /*
- *
+ *	Assigning orders to elevators
  */
 func suitableElevator(cabArray []consts.ButtonEvent, currFloor int, hallOrder consts.ButtonEvent) bool {
 	for _, cabOrder := range cabArray {
@@ -192,8 +192,7 @@ func (i *SlavesDB) findElevator(order consts.ButtonEvent) interface{} {
 	}
 
 	if elevator != nil {
-		ip := elevator.(consts.DBItem).Data.ListenIP
-		log.Println(consts.Yellow, "Found: elevator", message, ip, consts.Neutral)
+		log.Println(consts.Yellow, "Found: elevator", message, consts.Neutral)
 	}
 
 	return elevator

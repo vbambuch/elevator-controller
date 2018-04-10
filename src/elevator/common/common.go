@@ -7,7 +7,6 @@ import (
 	"time"
 	"log"
 	"net"
-	"network"
 )
 
 func GetNotification(d interface{}) (consts.Notification) {
@@ -53,6 +52,8 @@ func handleReachedDestination(order consts.ButtonEvent)  {
 func sendElevatorToFloor(order consts.ButtonEvent, onFloorChan chan<- bool, interruptCab <-chan bool) {
 	direction := consts.MotorUP
 
+	ElevatorState.SetFree(false) // must be there, even if elevator is on floor
+
 	if ElevatorState.GetFloor() > order.Floor {
 		direction = consts.MotorDOWN
 	} else if ElevatorState.GetFloor() == order.Floor {
@@ -63,7 +64,6 @@ func sendElevatorToFloor(order consts.ButtonEvent, onFloorChan chan<- bool, inte
 
 	ElevatorState.SetDoorLight(false)
 	ElevatorState.SetDirection(direction)
-	ElevatorState.SetFree(false)
 
 	for {
 		select {

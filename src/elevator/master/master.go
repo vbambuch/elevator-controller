@@ -80,7 +80,10 @@ func (m *Master) masterHallOrderHandler() {
 				})
 
 				m.GetQueue().Pop()
-				log.Println(consts.White, "parsed order", order, consts.Neutral)
+				ip := item.Data.ListenIP
+				log.Println(consts.White, ip, ": parsed order", order, consts.Neutral)
+				//m.GetQueue().Dump()
+
 
 				orderData := consts.NotificationData{
 					Code: consts.MasterHallOrder,
@@ -99,6 +102,7 @@ func (m *Master) masterHallOrderHandler() {
 func (m *Master) listenIncomingMsg(conn *net.UDPConn) {
 	var typeJson consts.NotificationData
 	buffer := make([]byte, 8192)
+	hallQueue := m.GetQueue()
 
 	for {
 		n, err := conn.Read(buffer[0:])
@@ -131,14 +135,21 @@ func (m *Master) listenIncomingMsg(conn *net.UDPConn) {
 				order := consts.ButtonEvent{}
 				json.Unmarshal(typeJson.Data, &order)
 				log.Println(consts.White, "<- hall order", consts.Neutral)
-				m.GetQueue().Push(order)
+				//log.Println(consts.White, "queue length:", hallQueue.Len(), consts.Neutral)
 
-				//broadcast all slaves to turn on light bulbs
-				notification := consts.NotificationData{
-					Code: consts.MasterHallLight,
-					Data: common.GetRawJSON(order),
+				if hallQueue.NewOrder(order) {
+					hallQueue.Push(order)
+
+					//m.GetQueue().Dump()
+
+					//broadcast all slaves to turn on light bulbs
+					notification := consts.NotificationData{
+						Code: consts.MasterHallLight,
+						Data: common.GetRawJSON(order),
+					}
+					m.broadcastToSlaves(notification)
 				}
-				m.broadcastToSlaves(notification)
+
 			case consts.ClearHallOrder:
 				order := consts.ButtonEvent{}
 				json.Unmarshal(typeJson.Data, &order)
