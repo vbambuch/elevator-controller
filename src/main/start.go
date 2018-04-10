@@ -24,11 +24,14 @@ func startCommonProcedures(receivedCabChan <-chan consts.ButtonEvent, sendHallCh
 	ipAddr := consts.LocalAddress+consts.MyPort
 	conn := network.GetListenConn(ipAddr)
 
+	masterConn := network.GetSendConn(consts.BSendAddress)
+	common.ElevatorState.SetMasterConn(masterConn)
+
 	go common.PeriodicNotifications(ipAddr)
 	go common.HallOrderNotifications(sendHallChan)
 	go common.ListenIncomingMsg(receivedHallChan, conn)
 	go common.OrderHandler(receivedCabChan, receivedHallChan)
-	go common.BroadcastListener()
+	//go common.BroadcastListener()
 }
 
 func roleChangeHandler(orderChan <-chan consts.ButtonEvent, newRoleChan <-chan bool)  {
@@ -77,8 +80,8 @@ func errorHandler(errorChan <-chan consts.ElevatorError, newRoleChan chan<- bool
 }
 
 //Channels for the network
-var outgoingMsg = make(chan consts.Message, 10)
-var incomingMsg = make(chan consts.Message, 10)
+//var outgoingMsg = make(chan consts.Message, 10)
+//var incomingMsg = make(chan consts.Message, 10)
 
 func main() {
 
@@ -112,7 +115,7 @@ func main() {
 
 	//common.Init(stateChan, orderChan)
 	cabButtonChan, hallButtonChan := common.Init()
-	network.Initialize(outgoingMsg, incomingMsg)
+	//network.Initialize(outgoingMsg, incomingMsg)
 
 	// start error detection
 	//go network.ErrorDetection(errorChan)

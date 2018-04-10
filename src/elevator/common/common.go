@@ -217,19 +217,6 @@ func ListenIncomingMsg(receivedHallChan chan<- consts.ButtonEvent, conn *net.UDP
 					json.Unmarshal(typeJson.Data, &order)
 					log.Println(consts.Blue, "<- hall light:", order, consts.Neutral)
 					WriteButtonLamp(order.Button, order.Floor, true)
-				//case consts.MasterBroadcastIP:
-				//	var ip string
-				//	json.Unmarshal(typeJson.Data, &ip)
-				//	log.Println(consts.Blue, "<- master ip:", ip, consts.Neutral)
-				//
-				//	log.Println(consts.Green, "Setting master connection...", consts.Neutral)
-				//	masterConn := network.GetSendConn(ip)
-				//
-				//	myIP := masterConn.LocalAddr()
-				//	log.Println(consts.Green, "My ListenIP:", myIP.String(), consts.Neutral)
-				//
-				//	ElevatorState.SetMasterConn(masterConn)
-
 				case consts.ClearHallOrder:
 					order := consts.ButtonEvent{}
 					json.Unmarshal(typeJson.Data, &order)
@@ -238,56 +225,5 @@ func ListenIncomingMsg(receivedHallChan chan<- consts.ButtonEvent, conn *net.UDP
 				}
 			}
 		}
-	}
-}
-
-func BroadcastListener() {
-	ipAddr := consts.BListenAddress +consts.BroadcastPort
-	conn := network.GetListenConn(ipAddr)
-
-	var typeJson consts.NotificationData
-
-	//ipAddr := net.IPv4(255, 255, 255, 255)
-	//conn, err := net.DialUDP("udp4", nil, &net.UDPAddr{
-	//	IP:   ipAddr,
-	//	Port: consts.BroadcastPort,
-	//})
-	//if err != nil {
-	//	panic(err.Error())
-	//}
-
-	buffer := make([]byte, 8192)
-
-	for {
-		if conn != nil {
-			n, err := conn.Read(buffer[0:])
-			if err != nil {
-				log.Println(consts.Blue, "reading broadcast failed", consts.Neutral)
-				log.Fatal(err)
-			}
-			//log.Println(consts.Blue, buffer, consts.Neutral)
-			if len(buffer) > 0 {
-
-				err2 := json.Unmarshal(buffer[0:n], &typeJson)
-				if err2 != nil {
-					log.Println(consts.Blue, "unmarshal slave failed", consts.Neutral)
-					log.Fatal(err2)
-				} else {
-
-					var ip string
-					json.Unmarshal(typeJson.Data, &ip)
-					log.Println(consts.Blue, "<- master ip:", ip, consts.Neutral)
-
-					log.Println(consts.Green, "Setting master connection...", consts.Neutral)
-					masterConn := network.GetSendConn(ip)
-
-					myIP := masterConn.LocalAddr()
-					log.Println(consts.Green, "My ListenIP:", myIP.String(), consts.Neutral)
-
-					ElevatorState.SetMasterConn(masterConn)
-				}
-			}
-		}
-		time.Sleep(consts.PollRate)
 	}
 }
