@@ -5,7 +5,6 @@ import (
 	"sync"
 	"net"
 	"fmt"
-	"strings"
 	"consts"
 )
 
@@ -19,7 +18,7 @@ func InitIO() {
 		fmt.Println("Driver already initialized!")
 		return
 	}
-	address := strings.Join([]string{consts.Address, consts.ElevatorPort}, ":")
+	address := consts.LocalAddress+consts.ElevatorPort
 	mutex = sync.Mutex{}
 	var err error
 	connect, err = net.Dial("tcp", address)

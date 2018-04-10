@@ -168,13 +168,23 @@ func (m *Master) listenIncomingMsg(conn *net.UDPConn) {
  * do same things as Slave
  */
 func StartMaster() {
-	listenConn := network.GetMasterListenConn()
+	listenConn := network.GetListenConn(consts.LocalAddress+consts.MasterPort)
 
 	slavesDB := SlavesDB{}
 	master := Master{
 		consts.NewQueue(),
 		sync.Mutex{},
 		&slavesDB,
+	}
+
+	conn := network.GetSendConn(consts.BSendAddress+consts.BroadcastPort)
+	if conn != nil {
+		notification := consts.NotificationData{
+			Code: consts.MasterBroadcastIP,
+			Data: common.GetRawJSON(listenConn.LocalAddr().String()),
+		}
+		data := common.GetNotification(notification)
+		conn.Write(data)
 	}
 
 	go master.listenIncomingMsg(listenConn)
