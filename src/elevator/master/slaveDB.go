@@ -82,7 +82,7 @@ func (i *SlavesDB) update(item consts.DBItem) {
 	}
 	//log.Println(consts.Yellow, "trying to push", consts.Neutral)
 
-	clientConn := network.GetSlaveSendConn(item.Data.ListenIP)
+	clientConn := network.GetSendConn(item.Data.ListenIP)
 	item.ClientConn = clientConn
 	i.list.PushBack(item)
 	log.Println(consts.White, "ListenIP:", item.Data.ListenIP, consts.Neutral)

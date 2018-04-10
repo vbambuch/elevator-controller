@@ -41,7 +41,6 @@ func (m *Master) sendToSlave(conn *net.UDPConn, notification consts.Notification
 	}
 }
 
-//func (m *Master) broadcastToSlaves(notification consts.NotificationData) {
 func (m *Master) broadcastToSlaves(data consts.NotificationData) {
 	//log.Println(consts.White, "broadcast", n)
 	list := m.GetDB().getList()
@@ -168,7 +167,7 @@ func (m *Master) listenIncomingMsg(conn *net.UDPConn) {
  * do same things as Slave
  */
 func StartMaster() {
-	listenConn := network.GetMasterListenConn()
+	listenConn := network.GetListenConn(consts.BListenAddress)
 
 	slavesDB := SlavesDB{}
 	master := Master{

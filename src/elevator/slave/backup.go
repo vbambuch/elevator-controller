@@ -1,7 +1,6 @@
 package slave
 
 import (
-	"net"
 	"consts"
 )
 
@@ -14,6 +13,6 @@ import (
  * -> became Master if prev Master failed
  * do same things as Slave
  */
-func StartBackup(orderChan <-chan consts.ButtonEvent, masterConn *net.UDPConn) {
+func StartBackup(orderChan <-chan consts.ButtonEvent) {
 
 }

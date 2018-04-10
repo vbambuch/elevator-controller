@@ -10,12 +10,15 @@ const MaxFloor = 3
 const NumFloors = MaxFloor + 1
 const MiddleFloor = -1
 
-const Address = "localhost"
-var ElevatorPort = "15657" // TODO change back to const
-var MyPort = "20001"       // TODO change back to const
+const LocalAddress = "localhost:"
+var BListenAddress = "0.0.0.0:"+masterPort
+var BSendAddress = "255.255.255.255:"+masterPort
+//const BroadcastPort = "50000"
+const masterPort = "40000"
+var ElevatorPort = "15657" 	// TODO change back to const
+var MyPort = "20001"       	// TODO change back to const
 
-// TODO remove when role decision is ready
-var MasterPort = ""
+
 
 // Elevator consts
 const DefaultValue = -2

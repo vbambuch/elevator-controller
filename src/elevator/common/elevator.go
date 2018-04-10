@@ -225,6 +225,9 @@ func (e *Elevator) SetRole(role consts.Role) {
 func (e *Elevator) SetMasterConn(conn *net.UDPConn) {
 	e.mux.Lock()
 	defer e.mux.Unlock()
+	if e.masterConn != nil {
+		e.masterConn.Close()
+	}
 	e.masterConn = conn
 }
 

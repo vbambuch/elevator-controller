@@ -7,6 +7,7 @@ import (
 	"time"
 	"log"
 	"net"
+	"network"
 )
 
 func GetNotification(d interface{}) (consts.Notification) {
@@ -38,11 +39,13 @@ func clearHallOrder(order consts.ButtonEvent) {
 func handleReachedDestination(order consts.ButtonEvent)  {
 	ElevatorState.SetDirection(consts.MotorSTOP)
 	ElevatorState.SetDoorLight(true)
-	clearHallOrder(order)
 
 	if order.Button == consts.ButtonCAB {
 		ElevatorState.DeleteOrder(order)
+		ElevatorState.ClearOrderButton(order)
 		log.Println(consts.Blue, "Clear cab order", order, consts.Neutral)
+	} else {
+		clearHallOrder(order)
 	}
 }
 
@@ -214,10 +217,6 @@ func ListenIncomingMsg(receivedHallChan chan<- consts.ButtonEvent, conn *net.UDP
 					json.Unmarshal(typeJson.Data, &order)
 					log.Println(consts.Blue, "<- hall light:", order, consts.Neutral)
 					WriteButtonLamp(order.Button, order.Floor, true)
-				case consts.MasterBroadcastIP:
-					var ip string
-					json.Unmarshal(typeJson.Data, &ip)
-					log.Println(consts.Blue, "<- master ip:", ip, consts.Neutral)
 				case consts.ClearHallOrder:
 					order := consts.ButtonEvent{}
 					json.Unmarshal(typeJson.Data, &order)
