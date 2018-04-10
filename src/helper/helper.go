@@ -6,15 +6,26 @@ import (
 
 type ASCFloors []consts.ButtonEvent
 type DESCFloors []consts.ButtonEvent
+type ByQueue []consts.DBItem
+type ByFloorDiff []consts.FreeElevatorItem
+
 
 func (a ASCFloors) Len() int           { return len(a) }
 func (a ASCFloors) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ASCFloors) Less(i, j int) bool { return a[i].Floor < a[j].Floor }
 
-
 func (a DESCFloors) Len() int           { return len(a) }
 func (a DESCFloors) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a DESCFloors) Less(i, j int) bool { return a[i].Floor > a[j].Floor }
+
+func (a ByQueue) Len() int           { return len(a) }
+func (a ByQueue) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ByQueue) Less(i, j int) bool { return len(a[i].Data.CabArray) < len(a[j].Data.CabArray) }
+
+func (a ByFloorDiff) Len() int           { return len(a) }
+func (a ByFloorDiff) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ByFloorDiff) Less(i, j int) bool { return a[i].FloorDiff < a[j].FloorDiff }
+
 
 
 func QueueToArray(queue consts.Queue) ([]consts.ButtonEvent) {

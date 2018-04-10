@@ -31,6 +31,8 @@ func (m *Master) GetDB() *SlavesDB {
 	return m.slaveDB
 }
 
+//TODO uncomment when ready
+//func (m *Master) sendToSlave(ip string, order consts.ButtonEvent) {
 func (m *Master) sendToSlave(conn *net.UDPConn, notification consts.NotificationData) {
 	m.mux.Lock()
 	defer m.mux.Unlock()
@@ -41,11 +43,12 @@ func (m *Master) sendToSlave(conn *net.UDPConn, notification consts.Notification
 	}
 }
 
+//func (m *Master) broadcastToSlaves(notification consts.NotificationData) {
 func (m *Master) broadcastToSlaves(data consts.NotificationData) {
 	//log.Println(consts.White, "broadcast", n)
 	list := m.GetDB().getList()
 	for el := list.Front(); el != nil; el = el.Next() {
-		conn := el.Value.(dbItem).clientConn
+		conn := el.Value.(consts.DBItem).ClientConn
 		m.sendToSlave(conn, data)
 	}
 }
@@ -65,15 +68,15 @@ func (m *Master) masterHallOrderHandler() {
 
 				// force this elevator to busy (don't wait for periodic update)
 				// ignore next 5 updates from specific slave
-				item := elData.(dbItem)
-				db.update(dbItem{
-					clientConn: item.clientConn,
-					ignore: 10,
-					data: consts.PeriodicData{
-						ListenIP:		item.data.ListenIP,
-						Floor:          item.data.Floor,
-						Direction:      item.data.Direction,
-						CabArray:       item.data.CabArray,
+				item := elData.(consts.DBItem)
+				db.update(consts.DBItem{
+					ClientConn: item.ClientConn,
+					Ignore: 10,
+					Data: consts.PeriodicData{
+						ListenIP:		item.Data.ListenIP,
+						Floor:          item.Data.Floor,
+						Direction:      item.Data.Direction,
+						CabArray:       item.Data.CabArray,
 						Free:           false,
 						HallProcessing: true,
 					},
@@ -87,7 +90,7 @@ func (m *Master) masterHallOrderHandler() {
 					Data: common.GetRawJSON(order),
 				}
 
-				m.sendToSlave(item.clientConn, orderData)
+				m.sendToSlave(item.ClientConn, orderData)
 			} else {
 				//log.Println(consts.White, "no free elevator")
 			}

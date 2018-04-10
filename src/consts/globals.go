@@ -1,6 +1,9 @@
 package consts
 
-import "time"
+import (
+	"time"
+	"net"
+)
 
 const MinFloor = 0
 const MaxFloor = 3
@@ -54,6 +57,17 @@ const (
 	Slave 		 = 3
 )
 
+// SlaveDB
+type FreeElevatorItem struct {
+	FloorDiff int
+	Data      DBItem
+}
+
+type DBItem struct {
+	ClientConn *net.UDPConn
+	Ignore     int //ignore number of incoming messages
+	Data       PeriodicData
+}
 
 
 // Error detection

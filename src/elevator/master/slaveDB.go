@@ -6,31 +6,11 @@ import (
 	"sync"
 	"log"
 	"sort"
-	"net"
 	"network"
+	"helper"
 )
 
-// Sorting dbItems
-type ByQueue []dbItem
 
-func (a ByQueue) Len() int           { return len(a) }
-func (a ByQueue) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a ByQueue) Less(i, j int) bool { return len(a[i].data.CabArray) < len(a[j].data.CabArray) }
-
-
-// Database of slaves
-//type SlaveData struct {
-//	Floor      int
-//	Direction  consts.MotorDirection
-//	OrderArray []consts.ButtonEvent
-//	Free      bool
-//}
-
-type dbItem struct {
-	clientConn 		*net.UDPConn
-	ignore 			int		//ignore number of incoming messages
-	data   			consts.PeriodicData
-}
 
 type SlavesDB struct {
 	list list.List		// list of dbItems
@@ -48,7 +28,7 @@ func (i *SlavesDB) dump() {
 	defer i.mux.Unlock()
 
 	for e := i.list.Front(); e != nil; e = e.Next() {
-		data := e.Value.(dbItem).data
+		data := e.Value.(consts.DBItem).Data
 		log.Println(consts.Yellow, "----------", consts.Neutral)
 		log.Println(consts.Yellow, "ip:", data.ListenIP, consts.Neutral)
 		log.Println(consts.Yellow, "floor:", data.Floor, consts.Neutral)
@@ -65,36 +45,36 @@ func (i *SlavesDB) exists(ip string) (bool) {
 	defer i.mux.Unlock()
 
 	for e := i.list.Front(); e != nil; e = e.Next() {
-		el := e.Value.(dbItem)
-		if el.data.ListenIP == ip {
+		el := e.Value.(consts.DBItem)
+		if el.Data.ListenIP == ip {
 			return true
 		}
 	}
 	return false
 }
 
-func (i *SlavesDB) update(item dbItem) {
+func (i *SlavesDB) update(item consts.DBItem) {
 	i.mux.Lock()
 	defer i.mux.Unlock()
 
 	for e := i.list.Front(); e != nil; e = e.Next() {
-		v := e.Value.(dbItem)
-		if v.data.ListenIP == item.data.ListenIP {
+		v := e.Value.(consts.DBItem)
+		if v.Data.ListenIP == item.Data.ListenIP {
 			//queue := v.data.OrderArray // keep previous queue
 			//log.Println(consts.White, "db item", v.ignore, v.data.Free)
 			//log.Printf("db item %+v", v.data.OrderArray.Len())
 
-			if v.ignore > 0 {
-				e.Value = dbItem{
-					clientConn: v.clientConn,	// keep previous conn
-					ignore: v.ignore -1,
-					data: v.data,
+			if v.Ignore > 0 {
+				e.Value = consts.DBItem{
+					ClientConn: v.ClientConn,	// keep previous conn
+					Ignore: v.Ignore -1,
+					Data: v.Data,
 				}
 			} else {
-				e.Value = dbItem{
-					clientConn: v.clientConn,	// keep previous conn
-					ignore: item.ignore,
-					data: item.data,
+				e.Value = consts.DBItem{
+					ClientConn: v.ClientConn,	// keep previous conn
+					Ignore: item.Ignore,
+					Data: item.Data,
 				}
 			}
 			return
@@ -102,26 +82,57 @@ func (i *SlavesDB) update(item dbItem) {
 	}
 	//log.Println(consts.Yellow, "trying to push", consts.Neutral)
 
-	clientConn := network.GetSlaveSendConn(item.data.ListenIP)
-	item.clientConn = clientConn
+	clientConn := network.GetSlaveSendConn(item.Data.ListenIP)
+	item.ClientConn = clientConn
 	i.list.PushBack(item)
-	log.Println(consts.White, "ListenIP:", item.data.ListenIP, consts.Neutral)
+	log.Println(consts.White, "ListenIP:", item.Data.ListenIP, consts.Neutral)
 	//log.Println(consts.White, "Conn:", item.clientConn.RemoteAddr(), consts.Neutral)
 }
 
 func (i *SlavesDB) storeData(data consts.PeriodicData)  {
-	item := dbItem{nil,0,data}
+	item := consts.DBItem{nil,0,data}
 	i.update(item)
 }
+
+
+
+/*
+ *
+ */
+func suitableElevator(cabArray []consts.ButtonEvent, currFloor int, hallOrder consts.ButtonEvent) bool {
+	for _, cabOrder := range cabArray {
+		// elevator | hallCall - UP | cabCall => stop on hallCall
+		if currFloor < hallOrder.Floor &&
+			hallOrder.Floor < cabOrder.Floor &&
+			hallOrder.Button == consts.ButtonUP {
+			return true
+			// cabCall | hallCall - DOWN | elevator => stop on hallCall
+		} else if currFloor > hallOrder.Floor &&
+			hallOrder.Floor > cabOrder.Floor &&
+			hallOrder.Button == consts.ButtonDOWN {
+			return true
+		}
+	}
+	return false
+}
+
+func getShortestQueueElevator(suitableArray []consts.DBItem) interface{} {
+	if len(suitableArray) > 0 {
+		sort.Sort(helper.ByQueue(suitableArray))
+		return suitableArray[0]
+	}
+	return nil
+}
+
 
 func (i *SlavesDB) findElevatorOnFloor(floor int) interface{} {
 	i.mux.Lock()
 	defer i.mux.Unlock()
 
-	var onFloorArray []dbItem
+	var onFloorArray []consts.DBItem
 	for e := i.list.Front(); e != nil; e = e.Next() {
-		elItem := e.Value.(dbItem)
-		if elItem.data.Floor == floor && elItem.data.Free {
+		elItem := e.Value.(consts.DBItem)
+		if elItem.Data.Floor == floor && elItem.Data.Free {
 			onFloorArray = append(onFloorArray, elItem)
 		}
 	}
@@ -130,16 +141,15 @@ func (i *SlavesDB) findElevatorOnFloor(floor int) interface{} {
 	return getShortestQueueElevator(onFloorArray)
 }
 
-func (i *SlavesDB) findFreeElevator() interface{} {
+func (i *SlavesDB) findFreeElevator(floor int) interface{} {
 	i.mux.Lock()
 	defer i.mux.Unlock()
 
+	var freeArray []consts.DBItem
 	for e := i.list.Front(); e != nil; e = e.Next() {
-		item := e.Value.(dbItem)
-		//log.Println(consts.White, "db item", item)
-
-		if item.data.Free {
-			return item
+		item := e.Value.(consts.DBItem)
+		if item.Data.Free {
+			freeArray = append(freeArray, item)
 		}
 	}
 	return nil
@@ -149,12 +159,12 @@ func (i *SlavesDB) findSameDirection(order consts.ButtonEvent) interface{} {
 	i.mux.Lock()
 	defer i.mux.Unlock()
 
-	var suitableArray []dbItem
+	var suitableArray []consts.DBItem
 	for e := i.list.Front(); e != nil; e = e.Next() {
-		item := e.Value.(dbItem)
+		item := e.Value.(consts.DBItem)
 		//log.Println(consts.White, "db item", item)
 
-		if !item.data.HallProcessing && suitableElevator(item.data.CabArray, item.data.Floor, order) {
+		if !item.Data.HallProcessing && suitableElevator(item.Data.CabArray, item.Data.Floor, order) {
 			suitableArray = append(suitableArray, item)
 		} else {
 		//log.Println(consts.Yellow, "not suitable", item.data.CabArray, consts.Neutral)
@@ -173,7 +183,7 @@ func (i *SlavesDB) findElevator(order consts.ButtonEvent) interface{} {
 	elevator := i.findElevatorOnFloor(order.Floor)
 	if elevator == nil {
 		message = "free"
-		elevator = i.findFreeElevator()
+		elevator = i.findFreeElevator(order.Floor)
 		if elevator == nil {
 			message = "same direction"
 			elevator = i.findSameDirection(order)
@@ -189,29 +199,4 @@ func (i *SlavesDB) findElevator(order consts.ButtonEvent) interface{} {
 	}
 
 	return elevator
-}
-
-func suitableElevator(cabArray []consts.ButtonEvent, currFloor int, hallOrder consts.ButtonEvent) bool {
-	for _, cabOrder := range cabArray {
-		// elevator | hallCall - UP | cabCall => stop on hallCall
-		if currFloor < hallOrder.Floor &&
-				hallOrder.Floor < cabOrder.Floor &&
-				hallOrder.Button == consts.ButtonUP {
-			return true
-		// cabCall | hallCall - DOWN | elevator => stop on hallCall
-		} else if currFloor > hallOrder.Floor &&
-				hallOrder.Floor > cabOrder.Floor &&
-				hallOrder.Button == consts.ButtonDOWN {
-			return true
-		}
-	}
-	return false
-}
-
-func getShortestQueueElevator(suitableArray []dbItem) interface{} {
-	if len(suitableArray) > 0 {
-		sort.Sort(ByQueue(suitableArray))
-		return suitableArray[0]
-	}
-	return nil
 }
