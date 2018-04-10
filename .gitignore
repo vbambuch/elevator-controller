@@ -3,6 +3,8 @@
 Cargo.lock
 .idea/
 pkg/
+Simulator-v2/SimElevatorServer
+Simulator-v2/SimElevatorServer.o
 
 # Emacs autosave files
 **/*~

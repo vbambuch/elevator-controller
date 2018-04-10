@@ -1,7 +1,6 @@
 package helper
 
 import (
-	"time"
 	"consts"
 )
 
@@ -17,10 +16,6 @@ func (a DESCFloors) Len() int           { return len(a) }
 func (a DESCFloors) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a DESCFloors) Less(i, j int) bool { return a[i].Floor > a[j].Floor }
 
-func Timeout(ms time.Duration, timeout chan<- bool) {
-	time.Sleep(ms * time.Millisecond)
-	timeout <- true
-}
 
 func QueueToArray(queue consts.Queue) ([]consts.ButtonEvent) {
 	var result []consts.ButtonEvent

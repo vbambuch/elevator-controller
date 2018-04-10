@@ -31,8 +31,6 @@ func (m *Master) GetDB() *SlavesDB {
 	return m.slaveDB
 }
 
-//TODO uncomment when ready
-//func (m *Master) sendToSlave(ip string, order consts.ButtonEvent) {
 func (m *Master) sendToSlave(conn *net.UDPConn, notification consts.NotificationData) {
 	m.mux.Lock()
 	defer m.mux.Unlock()
@@ -43,7 +41,6 @@ func (m *Master) sendToSlave(conn *net.UDPConn, notification consts.Notification
 	}
 }
 
-//func (m *Master) broadcastToSlaves(notification consts.NotificationData) {
 func (m *Master) broadcastToSlaves(data consts.NotificationData) {
 	//log.Println(consts.White, "broadcast", n)
 	list := m.GetDB().getList()
