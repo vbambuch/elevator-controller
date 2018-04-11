@@ -18,7 +18,7 @@ var ElevatorState = Elevator {
 	consts.DefaultValue,
 	consts.DefaultValue,
 	false,
-	//consts.ButtonEvent{consts.DefaultValue, consts.DefaultValue},
+	consts.ButtonEvent{consts.DefaultValue, consts.DefaultValue},
 	false,
 	false,
 	false,
@@ -37,7 +37,7 @@ type Elevator struct {
 	floor         	int
 	prevFloor     	int
 	middleFloor		bool
-	//hallOrder     	consts.ButtonEvent
+	hallOrder     	consts.ButtonEvent
 	stopButton    	bool
 	obstruction   	bool
 	doorLight     	bool
@@ -67,20 +67,24 @@ func (e *Elevator) sendToMaster(data consts.Notification) bool {
 
 
 /**
- * List manipulation methods.
+ * Cab array manipulation methods.
  */
-func (e *Elevator) OrderExists(order consts.ButtonEvent) bool {
+func (e *Elevator) NewOrder(order consts.ButtonEvent) bool {
 	e.mux.Lock()
 	defer e.mux.Unlock()
 	for _, v := range e.cabArray {
-		if v.Floor == order.Floor { return true }
+		if v.Floor == order.Floor { return false }
 	}
-	return false
+	return true
 }
 func (e *Elevator) GetCabArray() ([]consts.ButtonEvent) {
 	e.mux.Lock()
 	defer e.mux.Unlock()
 	return e.cabArray
+}
+
+func (e *Elevator) CabArrayNotEmpty() (bool) {
+	return len(e.GetCabArray()) != 0
 }
 
 // insert order to sorted list
@@ -126,7 +130,7 @@ func (e *Elevator) DeleteFirstElement() (interface{}) {
 	log.Println(consts.Yellow, "Prev cab array:", ElevatorState.GetCabArray(), consts.Neutral)
 
 	e.mux.Lock()
-	if len(e.cabArray) != 0 {
+	if e.CabArrayNotEmpty() {
 		toRemove = e.cabArray[0]
 		e.cabArray = e.cabArray[1:]
 	}
@@ -181,11 +185,11 @@ func (e *Elevator) SetMiddleFloor(a bool) {
 	e.middleFloor = a
 }
 
-//func (e *Elevator) SetHallButton(button consts.ButtonEvent) {
-//	e.mux.Lock()
-//	e.hallOrder = button
-//	e.mux.Unlock()
-//}
+func (e *Elevator) SetHallOrder(button consts.ButtonEvent) {
+	e.mux.Lock()
+	e.hallOrder = button
+	e.mux.Unlock()
+}
 
 func (e *Elevator) ClearOrderButton(order consts.ButtonEvent) {
 	WriteButtonLamp(order.Button, order.Floor, false)
@@ -273,11 +277,11 @@ func (e *Elevator) IsMiddleFloor() bool {
 	defer e.mux.Unlock()
 	return e.middleFloor
 }
-//func (e *Elevator) GetOrderButton() consts.ButtonEvent {
-//	e.mux.Lock()
-//	defer e.mux.Unlock()
-//	return e.hallOrder
-//}
+func (e *Elevator) GetHallOrder() consts.ButtonEvent {
+	e.mux.Lock()
+	defer e.mux.Unlock()
+	return e.hallOrder
+}
 func (e *Elevator) GetStopButton() bool {
 	e.mux.Lock()
 	defer e.mux.Unlock()

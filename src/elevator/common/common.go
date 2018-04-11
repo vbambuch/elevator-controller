@@ -31,7 +31,7 @@ func clearHallOrder(order consts.ButtonEvent) {
 
 	msg := GetNotification(notification)
 	if ElevatorState.sendToMaster(msg) {
-		log.Println(consts.Blue, "-> clear order:", order, consts.Neutral)
+		//log.Println(consts.Blue, "-> clear hall order:", order, consts.Neutral)
 	}
 }
 
@@ -42,9 +42,9 @@ func handleReachedDestination(order consts.ButtonEvent)  {
 	if order.Button == consts.ButtonCAB {
 		ElevatorState.DeleteOrder(order)
 		ElevatorState.ClearOrderButton(order)
-		log.Println(consts.Blue, "Clear cab order", order, consts.Neutral)
+		//log.Println(consts.Blue, "Clear cab order", order, consts.Neutral)
 	} else {
-		clearHallOrder(order)
+		clearHallOrder(order) // distribute to all elevators through Master
 	}
 }
 
@@ -68,6 +68,9 @@ func sendElevatorToFloor(order consts.ButtonEvent, onFloorChan chan<- bool, inte
 	for {
 		select {
 		case <- interruptCab:
+			if order.Button != consts.ButtonCAB {
+				ElevatorState.SetHallOrder(order)
+			} // else order remains in cabArray so it will be processed after
 			log.Println(consts.Yellow, "Interrupt:", order, consts.Neutral)
 			return
 		default:
@@ -86,7 +89,7 @@ func sendElevatorToFloor(order consts.ButtonEvent, onFloorChan chan<- bool, inte
 }
 
 
-func OrderHandler(cabButtonChan <-chan consts.ButtonEvent, hallButtonChan <-chan consts.ButtonEvent)  {
+func OrderHandler(cabButtonChan <-chan consts.ButtonEvent, hallButtonChan chan consts.ButtonEvent)  {
 	var timeout = time.NewTimer(0)
 	free := false
 	cabInterrupted := false
@@ -108,14 +111,15 @@ func OrderHandler(cabButtonChan <-chan consts.ButtonEvent, hallButtonChan <-chan
 			}
 
 		case cabOrder := <- cabButtonChan:
-			if !ElevatorState.OrderExists(cabOrder) {
+			if ElevatorState.NewOrder(cabOrder) {
+				// elevator is going somewhere => sendElevatorToFloor goroutine has been executed
 				if ElevatorState.GetDirection() != consts.MotorSTOP {
 					interruptCab <- true
 					cabInterrupted = true
 				}
 				log.Println(consts.Blue, "Pushed to cab queue", cabOrder, consts.Neutral)
 				ElevatorState.InsertToCabArray(cabOrder)
-				log.Println(consts.Yellow, "Curr cab array:", ElevatorState.GetCabArray(), consts.Neutral)
+				//log.Println(consts.Yellow, "Curr cab array:", ElevatorState.GetCabArray(), consts.Neutral)
 			}
 
 		case hallOrder := <- hallButtonChan:
@@ -132,13 +136,25 @@ func OrderHandler(cabButtonChan <-chan consts.ButtonEvent, hallButtonChan <-chan
 			}
 
 		default:
-			if len(ElevatorState.GetCabArray()) != 0 && (free || cabInterrupted) {
+			hallOrder := ElevatorState.GetHallOrder()
+			if ElevatorState.CabArrayNotEmpty() && (free || cabInterrupted) {
+				// just finished previous order or an interrupting cab order
+
 				// get first cab order
 				queueOrder := ElevatorState.GetCabOrder()
 				log.Println(consts.Blue, "Read from cab queue", queueOrder, consts.Neutral)
 				go sendElevatorToFloor(queueOrder, onFloorChan, interruptCab)
 				free = false
 				cabInterrupted = false
+			} else if hallOrder != consts.DefaultOrder && free {
+				// TODO movement isn't very clever -> hall order has low priority after it's interrupted
+				ElevatorState.SetHallOrder(consts.DefaultOrder)
+
+				//interruptCab <- true
+				log.Println(consts.Blue, "Process hall again", hallOrder, consts.Neutral)
+				go sendElevatorToFloor(hallOrder, onFloorChan, interruptCab)
+				free = false
+				//hallButtonChan <- hallOrder
 			}
 		}
 	}
@@ -215,12 +231,12 @@ func ListenIncomingMsg(receivedHallChan chan<- consts.ButtonEvent, conn *net.UDP
 				case consts.MasterHallLight:
 					order := consts.ButtonEvent{}
 					json.Unmarshal(typeJson.Data, &order)
-					log.Println(consts.Blue, "<- hall light:", order, consts.Neutral)
+					//log.Println(consts.Blue, "<- hall light:", order, consts.Neutral)
 					WriteButtonLamp(order.Button, order.Floor, true)
 				case consts.ClearHallOrder:
 					order := consts.ButtonEvent{}
 					json.Unmarshal(typeJson.Data, &order)
-					log.Println(consts.Blue, "<- clear order:", order, consts.Neutral)
+					//log.Println(consts.Blue, "<- clear order:", order, consts.Neutral)
 					ElevatorState.ClearOrderButton(order)
 				}
 			}

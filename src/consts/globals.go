@@ -22,7 +22,7 @@ var MyPort = "20001"       	// TODO change back to const
 
 // Elevator consts
 const DefaultValue = -2
-var DefaultButton = ButtonEvent{DefaultValue, DefaultValue}
+var DefaultOrder = ButtonEvent{DefaultValue, DefaultValue}
 type MotorDirection int
 const PollRate = 20 * time.Millisecond
 

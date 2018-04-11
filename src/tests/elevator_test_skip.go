@@ -78,7 +78,7 @@ package tests
 // */
 //func makeOrder(floor int, bt C.ButtonType, stateInfoChan chan common.Elevator, readyChan chan bool)  {
 //	order := C.ButtonEvent{Floor: floor, Button: bt}
-//	common.ElevatorState.SetHallButton(order)
+//	common.ElevatorState.SetHallOrder(order)
 //	go common.SendElevatorToFloor(order, stateInfoChan, readyChan)
 //	<- readyChan
 //	time.Sleep(2000 * time.Millisecond)

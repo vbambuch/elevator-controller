@@ -20,15 +20,8 @@ func stateHandler(floorChan <-chan int, obstructChan, stopChan <-chan bool, butt
 				cabButtonChan <- button
 				WriteButtonLamp(button.Button, button.Floor, true)
 			} else {
-				//ElevatorState.SetHallButton(button)
 				hallButtonChan <- button
 			}
-
-			//if button != ElevatorState.GetOrderButton() {
-			//	ElevatorState.SetHallButton(button) // prevent order button spam
-			//	orderChan <- button
-			//	changed = true
-			//}
 
 		case floor := <-floorChan:
 			//log.Printf("floor: %+v\n", floor)

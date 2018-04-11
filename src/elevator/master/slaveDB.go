@@ -97,7 +97,7 @@ func (i *SlavesDB) storeData(data consts.PeriodicData)  {
 
 
 /*
- *	Assigning orders to elevators
+ *	Functions for and assigning of orders to elevators
  */
 func suitableElevator(cabArray []consts.ButtonEvent, currFloor int, hallOrder consts.ButtonEvent) bool {
 	for _, cabOrder := range cabArray {
@@ -172,9 +172,7 @@ func (i *SlavesDB) findSameDirection(order consts.ButtonEvent) interface{} {
 	return helper.GetShortestQueueElevator(suitableArray)
 }
 
-/**
- * Main function for elevator searching
- */
+// Main function for elevator searching
 func (i *SlavesDB) findElevator(order consts.ButtonEvent) interface{} {
 	message := "on floor"
 	elevator := i.findElevatorOnFloor(order.Floor)
