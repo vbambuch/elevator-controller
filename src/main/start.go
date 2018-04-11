@@ -18,7 +18,11 @@ func roleDecision()  {
 }
 
 
-func startCommonProcedures(receivedCabChan <-chan consts.ButtonEvent, sendHallChan <-chan consts.ButtonEvent)  {
+func startCommonProcedures(
+	buttonsChan <-chan consts.ButtonEvent,
+	obstructChan <-chan bool,
+	stopChan <-chan bool)  {
+
 	receivedHallChan := make(chan consts.ButtonEvent)
 
 	ipAddr := consts.LocalAddress+consts.MyPort
@@ -28,10 +32,8 @@ func startCommonProcedures(receivedCabChan <-chan consts.ButtonEvent, sendHallCh
 	common.ElevatorState.SetMasterConn(masterConn)
 
 	go common.PeriodicNotifications(ipAddr)
-	go common.HallOrderNotifications(sendHallChan)
 	go common.ListenIncomingMsg(receivedHallChan, conn)
-	go common.OrderHandler(receivedCabChan, receivedHallChan)
-	//go common.BroadcastListener()
+	go common.ButtonsHandler(buttonsChan, receivedHallChan, obstructChan, stopChan)
 }
 
 func roleChangeHandler(orderChan <-chan consts.ButtonEvent, newRoleChan <-chan bool)  {
@@ -113,14 +115,13 @@ func main() {
 	//roleDecision()	// TODO uncomment
 	common.ElevatorState.SetRole(consts.Role(*myRole)) // TODO remove
 
-	//common.Init(stateChan, orderChan)
-	cabButtonChan, hallButtonChan := common.Init()
+	buttonsChan, obstructChan, stopChan := common.Init()
 	//network.Initialize(outgoingMsg, incomingMsg)
 
 	// start error detection
 	//go network.ErrorDetection(errorChan)
 	go errorHandler(errorChan, newRoleChan)
-	go startCommonProcedures(cabButtonChan, hallButtonChan)
+	go startCommonProcedures(buttonsChan, obstructChan, stopChan)
 	go roleChangeHandler(orderChan, newRoleChan)
 
 	newRoleChan <- true

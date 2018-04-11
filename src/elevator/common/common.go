@@ -89,7 +89,12 @@ func sendElevatorToFloor(order consts.ButtonEvent, onFloorChan chan<- bool, inte
 }
 
 
-func OrderHandler(cabButtonChan <-chan consts.ButtonEvent, hallButtonChan chan consts.ButtonEvent)  {
+func ButtonsHandler(
+	localButtonsChan <-chan consts.ButtonEvent,
+	remoteHallButtonChan <-chan consts.ButtonEvent,
+	obstructChan <-chan bool,
+	stopChan <-chan bool)  {
+
 	var timeout = time.NewTimer(0)
 	free := false
 	cabInterrupted := false
@@ -110,19 +115,32 @@ func OrderHandler(cabButtonChan <-chan consts.ButtonEvent, hallButtonChan chan c
 				ElevatorState.SetHallProcessing(false)
 			}
 
-		case cabOrder := <- cabButtonChan:
-			if ElevatorState.NewOrder(cabOrder) {
-				// elevator is going somewhere => sendElevatorToFloor goroutine has been executed
-				if ElevatorState.GetDirection() != consts.MotorSTOP {
-					interruptCab <- true
-					cabInterrupted = true
+		case button := <-localButtonsChan:
+			if button.Button == consts.ButtonCAB {
+				if ElevatorState.NewOrder(button) {
+					WriteButtonLamp(button.Button, button.Floor, true)
+					// elevator is going somewhere => sendElevatorToFloor goroutine has been executed
+					if ElevatorState.GetDirection() != consts.MotorSTOP {
+						interruptCab <- true
+						cabInterrupted = true
+					}
+					log.Println(consts.Blue, "Pushed to cab queue", button, consts.Neutral)
+					ElevatorState.InsertToCabArray(button)
+					//log.Println(consts.Yellow, "Curr cab array:", ElevatorState.GetCabArray(), consts.Neutral)
 				}
-				log.Println(consts.Blue, "Pushed to cab queue", cabOrder, consts.Neutral)
-				ElevatorState.InsertToCabArray(cabOrder)
-				//log.Println(consts.Yellow, "Curr cab array:", ElevatorState.GetCabArray(), consts.Neutral)
+			} else {
+				notification := consts.NotificationData{
+					Code: consts.SlaveHallOrder,
+					Data: GetRawJSON(button),
+				}
+
+				msg := GetNotification(notification)
+				if ElevatorState.sendToMaster(msg) {
+					log.Println(consts.Blue, "-> hall order:", button, consts.Neutral)
+				}
 			}
 
-		case hallOrder := <- hallButtonChan:
+		case hallOrder := <-remoteHallButtonChan:
 			ElevatorState.SetHallProcessing(true)
 			if free {
 				log.Println(consts.Blue, "Free for hall", hallOrder.Floor, consts.Neutral)
@@ -133,6 +151,24 @@ func OrderHandler(cabButtonChan <-chan consts.ButtonEvent, hallButtonChan chan c
 				log.Println(consts.Blue, "Interrupt and hall", hallOrder.Floor, consts.Neutral)
 				go sendElevatorToFloor(hallOrder, onFloorChan, interruptCab)
 				free = false
+			}
+
+		case obstruct := <- obstructChan:
+			log.Printf("obstruction: %+v\n", obstruct)
+			if obstruct != ElevatorState.GetObstruction() {
+				ElevatorState.SetObstruction(obstruct)
+			}
+
+		case stop := <- stopChan:
+			log.Printf("stop: %+v\n", stop)
+			if stop != ElevatorState.GetStopButton() {
+				ElevatorState.SetStopButton(stop)
+
+				for f := 0; f < consts.NumFloors; f++ {
+					for b := consts.ButtonUP; b < consts.ButtonCAB; b++ {
+						WriteButtonLamp(consts.ButtonType(b), f, false)
+					}
+				}
 			}
 
 		default:
@@ -150,11 +186,9 @@ func OrderHandler(cabButtonChan <-chan consts.ButtonEvent, hallButtonChan chan c
 				// TODO movement isn't very clever -> hall order has low priority after it's interrupted
 				ElevatorState.SetHallOrder(consts.DefaultOrder)
 
-				//interruptCab <- true
 				log.Println(consts.Blue, "Process hall again", hallOrder, consts.Neutral)
 				go sendElevatorToFloor(hallOrder, onFloorChan, interruptCab)
 				free = false
-				//hallButtonChan <- hallOrder
 			}
 		}
 	}
@@ -182,21 +216,6 @@ func PeriodicNotifications(ipAddr string) {
 		}
 		//time.Sleep(1 * time.Second)
 		time.Sleep(consts.PollRate)
-	}
-}
-
-func HallOrderNotifications(sendHallChan <-chan consts.ButtonEvent)  {
-	for {
-		order := <-sendHallChan
-		notification := consts.NotificationData{
-			Code: consts.SlaveHallOrder,
-			Data: GetRawJSON(order),
-		}
-
-		msg := GetNotification(notification)
-		if ElevatorState.sendToMaster(msg) {
-			log.Println(consts.Blue, "-> hall order:", order, consts.Neutral)
-		}
 	}
 }
 
