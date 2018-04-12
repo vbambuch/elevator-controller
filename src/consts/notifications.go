@@ -28,7 +28,7 @@ type PeriodicData struct {
 	ListenIP       string
 	Floor          int
 	Direction      MotorDirection
-	CabArray       []ButtonEvent
+	OrderArray     []ButtonEvent
 	Free           bool // elevator stopped on a floor and has empty cab call array
 	HallProcessing bool // elevator is processing hall order
 }

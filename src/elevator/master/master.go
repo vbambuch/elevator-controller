@@ -70,10 +70,10 @@ func (m *Master) masterHallOrderHandler() {
 					ClientConn: item.ClientConn,
 					Ignore: 10,
 					Data: consts.PeriodicData{
-						ListenIP:		item.Data.ListenIP,
+						ListenIP:       item.Data.ListenIP,
 						Floor:          item.Data.Floor,
 						Direction:      item.Data.Direction,
-						CabArray:       item.Data.CabArray,
+						OrderArray:     item.Data.OrderArray,
 						Free:           false,
 						HallProcessing: true,
 					},

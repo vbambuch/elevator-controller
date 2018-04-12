@@ -33,7 +33,7 @@ func (i *SlavesDB) dump() {
 		log.Println(consts.Yellow, "ip:", data.ListenIP, consts.Neutral)
 		log.Println(consts.Yellow, "floor:", data.Floor, consts.Neutral)
 		log.Println(consts.Yellow, "direction:", data.Direction, consts.Neutral)
-		log.Println(consts.Yellow, "queue:", data.CabArray, consts.Neutral)
+		log.Println(consts.Yellow, "queue:", data.OrderArray, consts.Neutral)
 		log.Println(consts.Yellow, "ready:", data.Free, consts.Neutral)
 		log.Println(consts.Yellow, "processing:", data.HallProcessing, consts.Neutral)
 		log.Println(consts.Yellow, "-----", consts.Neutral)
@@ -161,10 +161,10 @@ func (i *SlavesDB) findSameDirection(order consts.ButtonEvent) interface{} {
 		item := e.Value.(consts.DBItem)
 		//log.Println(consts.White, "db item", item)
 
-		if !item.Data.HallProcessing && suitableElevator(item.Data.CabArray, item.Data.Floor, order) {
+		if !item.Data.HallProcessing && suitableElevator(item.Data.OrderArray, item.Data.Floor, order) {
 			suitableArray = append(suitableArray, item)
 		} else {
-		//log.Println(consts.Yellow, "not suitable", item.data.CabArray, consts.Neutral)
+		//log.Println(consts.Yellow, "not suitable", item.data.OrderArray, consts.Neutral)
 		}
 	}
 

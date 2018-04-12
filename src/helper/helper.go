@@ -21,7 +21,7 @@ func (a DESCFloors) Less(i, j int) bool { return a[i].Floor > a[j].Floor }
 
 func (a ByQueue) Len() int           { return len(a) }
 func (a ByQueue) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a ByQueue) Less(i, j int) bool { return len(a[i].Data.CabArray) < len(a[j].Data.CabArray) }
+func (a ByQueue) Less(i, j int) bool { return len(a[i].Data.OrderArray) < len(a[j].Data.OrderArray) }
 
 func (a ByFloorDiff) Len() int           { return len(a) }
 func (a ByFloorDiff) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }

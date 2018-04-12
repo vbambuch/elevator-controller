@@ -42,7 +42,7 @@ type Elevator struct {
 	obstruction   	bool
 	doorLight     	bool
 	//hallQueue     *consts.Queue
-	cabArray       []consts.ButtonEvent
+	orderArray     []consts.ButtonEvent
 	mux            sync.Mutex
 	role           consts.Role
 	masterConn     *net.UDPConn
@@ -67,35 +67,35 @@ func (e *Elevator) sendToMaster(data consts.Notification) bool {
 
 
 /**
- * Cab array manipulation methods.
+ * Order array manipulation methods.
  */
 func (e *Elevator) NewOrder(order consts.ButtonEvent) bool {
 	e.mux.Lock()
 	defer e.mux.Unlock()
-	for _, v := range e.cabArray {
-		if v.Floor == order.Floor { return false }
+	for _, v := range e.orderArray {
+		if v.Floor == order.Floor && v.Button == order.Button { return false }
 	}
 	return true
 }
-func (e *Elevator) GetCabArray() ([]consts.ButtonEvent) {
+func (e *Elevator) GetOrderArray() ([]consts.ButtonEvent) {
 	e.mux.Lock()
 	defer e.mux.Unlock()
-	return e.cabArray
+	return e.orderArray
 }
 
-func (e *Elevator) CabArrayNotEmpty() (bool) {
-	return len(e.GetCabArray()) != 0
+func (e *Elevator) OrderArrayNotEmpty() (bool) {
+	return len(e.GetOrderArray()) != 0
 }
 
 // insert order to sorted list
-func (e *Elevator) InsertToCabArray(order consts.ButtonEvent) {
+func (e *Elevator) InsertToOrderArray(order consts.ButtonEvent) {
 	e.mux.Lock()
 	defer e.mux.Unlock()
-	e.cabArray = append(e.cabArray, order)
+	e.orderArray = append(e.orderArray, order)
 }
 
 // get first element regarding to direction of elevator
-func (e *Elevator) GetCabOrder() (consts.ButtonEvent) {
+func (e *Elevator) GetOrder() (consts.ButtonEvent) {
 	e.mux.Lock()
 	defer e.mux.Unlock()
 
@@ -103,16 +103,16 @@ func (e *Elevator) GetCabOrder() (consts.ButtonEvent) {
 	movingUP := e.direction == consts.MotorUP || e.prevDirection == consts.MotorUP
 	movingDOWN := e.direction == consts.MotorDOWN || e.prevDirection == consts.MotorDOWN
 
-	orderCount := len(e.cabArray)
+	orderCount := len(e.orderArray)
 	if orderCount == 1 {
-		return e.cabArray[0]
+		return e.orderArray[0]
 	} else if movingUP {
-		sort.Sort(helper.ASCFloors(e.cabArray))
+		sort.Sort(helper.ASCFloors(e.orderArray))
 	} else if movingDOWN {
-		sort.Sort(helper.DESCFloors(e.cabArray))
+		sort.Sort(helper.DESCFloors(e.orderArray))
 	}
 
-	for _, v := range e.cabArray {
+	for _, v := range e.orderArray {
 		if (movingUP && v.Floor > e.floor) || (movingDOWN && v.Floor < e.floor) {
 			// order is in the same direction as elevator
 			return v
@@ -122,36 +122,34 @@ func (e *Elevator) GetCabOrder() (consts.ButtonEvent) {
 		}
 	}
 	// all orders are in opposite direction => return last order (first in opposite direction)
-	return e.cabArray[orderCount - 1]
+	return e.orderArray[orderCount - 1]
 }
 
 func (e *Elevator) DeleteFirstElement() (interface{}) {
 	var toRemove interface{}
-	log.Println(consts.Yellow, "Prev cab array:", ElevatorState.GetCabArray(), consts.Neutral)
+	log.Println(consts.Yellow, "Prev order array:", ElevatorState.GetOrderArray(), consts.Neutral)
 
 	e.mux.Lock()
-	if e.CabArrayNotEmpty() {
-		toRemove = e.cabArray[0]
-		e.cabArray = e.cabArray[1:]
+	if e.OrderArrayNotEmpty() {
+		toRemove = e.orderArray[0]
+		e.orderArray = e.orderArray[1:]
 	}
 	e.mux.Unlock()
 
-	log.Println(consts.Yellow, "Curr cab array:", ElevatorState.GetCabArray(), consts.Neutral)
+	log.Println(consts.Yellow, "Curr order array:", ElevatorState.GetOrderArray(), consts.Neutral)
 	return toRemove
 }
 
 func (e *Elevator) DeleteOrder(order consts.ButtonEvent) {
-	//log.Println(consts.Yellow, "Prev cab array:", ElevatorState.GetCabArray(), consts.Neutral)
-
 	e.mux.Lock()
-	for i, v := range e.cabArray {
-		if v.Floor == order.Floor { // delete order
-			e.cabArray = append(e.cabArray[:i], e.cabArray[i+1:]...)
+	for i, v := range e.orderArray {
+		if v.Floor == order.Floor && v.Button == order.Button { // delete order
+			e.orderArray = append(e.orderArray[:i], e.orderArray[i+1:]...)
 		}
 	}
 	e.mux.Unlock()
 
-	//log.Println(consts.Yellow, "Curr cab array:", ElevatorState.GetCabArray(), consts.Neutral)
+	//log.Println(consts.Yellow, "Curr order array:", ElevatorState.GetOrderArray(), consts.Neutral)
 }
 
 
@@ -301,12 +299,12 @@ func (e *Elevator) GetDoorLight() bool {
 	defer e.mux.Unlock()
 	return e.doorLight
 }
-//func (i *Elevator) InsertToCabArray(qt consts.QueueType) *helper.Queue {
+//func (i *Elevator) InsertToOrderArray(qt consts.QueueType) *helper.Queue {
 //	i.mux.Lock()
 //	defer i.mux.Unlock()
 //	queue := i.hallQueue
-//	if qt == consts.CabArray {
-//		queue = i.cabArray
+//	if qt == consts.OrderArray {
+//		queue = i.orderArray
 //	}
 //	return queue
 //}
