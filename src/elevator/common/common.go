@@ -49,7 +49,7 @@ func handleReachedDestination(order consts.ButtonEvent)  {
 }
 
 
-func sendElevatorToFloor(order consts.ButtonEvent, onFloorChan chan<- bool, interruptCab <-chan bool) {
+func sendElevatorToFloor(order consts.ButtonEvent, onFloorChan chan<- bool, changeOrderChan <-chan bool, stopMovingChan <-chan bool) {
 	direction := consts.MotorUP
 
 	ElevatorState.SetFree(false) // must be there, even if elevator is on floor
@@ -67,11 +67,15 @@ func sendElevatorToFloor(order consts.ButtonEvent, onFloorChan chan<- bool, inte
 
 	for {
 		select {
-		case <- interruptCab:
+		case <-changeOrderChan:
 			if order.Button != consts.ButtonCAB {
-				ElevatorState.SetHallOrder(order)
+				ElevatorState.SetHallOrder(order) // TODO remove
 			} // else order remains in cabArray so it will be processed after
-			log.Println(consts.Yellow, "Interrupt:", order, consts.Neutral)
+			log.Println(consts.Yellow, "Change order:", order, consts.Neutral)
+			return
+		case <-stopMovingChan:
+			log.Println(consts.Yellow, "Interrupted by stop button", order, consts.Neutral)
+			ElevatorState.SetDirection(consts.MotorSTOP)
 			return
 		default:
 			floor := ElevatorState.GetFloor()
@@ -97,9 +101,11 @@ func ButtonsHandler(
 
 	var timeout = time.NewTimer(0)
 	free := false
-	cabInterrupted := false
+	orderInterrupted := false
 	onFloorChan := make(chan bool)
-	interruptCab := make(chan bool)
+	changeOrderChan := make(chan bool)
+	stopMovingChan := make(chan bool)
+
 
 	for {
 		select {
@@ -120,9 +126,9 @@ func ButtonsHandler(
 				if ElevatorState.NewOrder(button) {
 					WriteButtonLamp(button.Button, button.Floor, true)
 					// elevator is going somewhere => sendElevatorToFloor goroutine has been executed
-					if ElevatorState.GetDirection() != consts.MotorSTOP {
-						interruptCab <- true
-						cabInterrupted = true
+					if ElevatorState.IsMoving() {
+						changeOrderChan <- true
+						orderInterrupted = true
 					}
 					log.Println(consts.Blue, "Pushed to cab queue", button, consts.Neutral)
 					ElevatorState.InsertToCabArray(button)
@@ -141,54 +147,56 @@ func ButtonsHandler(
 			}
 
 		case hallOrder := <-remoteHallButtonChan:
+			// TODO push to order array
 			ElevatorState.SetHallProcessing(true)
 			if free {
 				log.Println(consts.Blue, "Free for hall", hallOrder.Floor, consts.Neutral)
-				go sendElevatorToFloor(hallOrder, onFloorChan, interruptCab)
+				go sendElevatorToFloor(hallOrder, onFloorChan, changeOrderChan, stopMovingChan)
 				free = false
 			} else {
-				interruptCab <- true
+				changeOrderChan <- true
 				log.Println(consts.Blue, "Interrupt and hall", hallOrder.Floor, consts.Neutral)
-				go sendElevatorToFloor(hallOrder, onFloorChan, interruptCab)
+				go sendElevatorToFloor(hallOrder, onFloorChan, changeOrderChan, stopMovingChan)
 				free = false
 			}
 
-		case obstruct := <- obstructChan:
-			log.Printf("obstruction: %+v\n", obstruct)
-			if obstruct != ElevatorState.GetObstruction() {
-				ElevatorState.SetObstruction(obstruct)
-			}
+		case <- obstructChan:
+			ElevatorState.SetDirection(consts.MotorSTOP)
+			// TODO close all connections and end peacefully
+			log.Panic(consts.Red, "OBSTRUCTION! PANIC!", consts.Yellow)
 
 		case stop := <- stopChan:
 			log.Printf("stop: %+v\n", stop)
-			if stop != ElevatorState.GetStopButton() {
-				ElevatorState.SetStopButton(stop)
-
-				for f := 0; f < consts.NumFloors; f++ {
-					for b := consts.ButtonUP; b < consts.ButtonCAB; b++ {
-						WriteButtonLamp(consts.ButtonType(b), f, false)
-					}
+			if stop && ElevatorState.GetStopButton() {
+				ElevatorState.SetStopButton(false)
+			} else if stop {
+				ElevatorState.SetStopButton(true)
+				if ElevatorState.IsMoving() || ElevatorState.CabArrayNotEmpty() {
+					stopMovingChan <- true
+					orderInterrupted = true
 				}
 			}
 
 		default:
-			hallOrder := ElevatorState.GetHallOrder()
-			if ElevatorState.CabArrayNotEmpty() && (free || cabInterrupted) {
-				// just finished previous order or an interrupting cab order
+			if ElevatorState.GetStopButton() == false {
+				hallOrder := ElevatorState.GetHallOrder() // TODO remove
+				if ElevatorState.CabArrayNotEmpty() && (free || orderInterrupted) {
+					// just finished previous order or an interrupting cab order
 
-				// get first cab order
-				queueOrder := ElevatorState.GetCabOrder()
-				log.Println(consts.Blue, "Read from cab queue", queueOrder, consts.Neutral)
-				go sendElevatorToFloor(queueOrder, onFloorChan, interruptCab)
-				free = false
-				cabInterrupted = false
-			} else if hallOrder != consts.DefaultOrder && free {
-				// TODO movement isn't very clever -> hall order has low priority after it's interrupted
-				ElevatorState.SetHallOrder(consts.DefaultOrder)
+					// get first cab order
+					queueOrder := ElevatorState.GetCabOrder()
+					log.Println(consts.Blue, "Read from cab queue", queueOrder, consts.Neutral)
+					go sendElevatorToFloor(queueOrder, onFloorChan, changeOrderChan, stopMovingChan)
+					free = false
+					orderInterrupted = false
+				} else if hallOrder != consts.DefaultOrder && free {
+					// TODO movement isn't very clever -> hall order has low priority after it's interrupted
+					ElevatorState.SetHallOrder(consts.DefaultOrder)
 
-				log.Println(consts.Blue, "Process hall again", hallOrder, consts.Neutral)
-				go sendElevatorToFloor(hallOrder, onFloorChan, interruptCab)
-				free = false
+					log.Println(consts.Blue, "Process hall again", hallOrder, consts.Neutral)
+					go sendElevatorToFloor(hallOrder, onFloorChan, changeOrderChan, stopMovingChan)
+					free = false
+				}
 			}
 		}
 	}

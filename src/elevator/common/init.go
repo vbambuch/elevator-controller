@@ -12,7 +12,7 @@ func floorHandler(floorChan <-chan int) {
 		//log.Printf("floor: %+v\n", floor)
 		if floor != ElevatorState.GetFloor() {
 			if floor == consts.MinFloor || floor == consts.MaxFloor &&
-				ElevatorState.GetDirection() != consts.MotorSTOP {
+				ElevatorState.IsMoving() {
 				ElevatorState.SetDirection(consts.MotorSTOP)
 				ElevatorState.SetFloorIndicator(floor)
 			} else if floor == consts.MiddleFloor {
@@ -23,6 +23,16 @@ func floorHandler(floorChan <-chan int) {
 			}
 		}
 	}
+}
+
+func defaultElevatorState()  {
+	for f := 0; f <= consts.MaxFloor; f++ {
+		for b := consts.ButtonType(0); b < 3; b++ {
+			WriteButtonLamp(b, f, false)
+		}
+	}
+	WriteDoorOpenLamp(false)
+	WriteStopLamp(false)
 }
 
 func Init() (chan consts.ButtonEvent, chan bool, chan bool) {
@@ -40,6 +50,9 @@ func Init() (chan consts.ButtonEvent, chan bool, chan bool) {
 	go PollButtons(buttonsChan)
 
 	go floorHandler(floorChan)
+
+	// clear all call, door and stop buttons
+	defaultElevatorState()
 
 	// wait for initialization of elevator
 	setup := true

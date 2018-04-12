@@ -110,7 +110,7 @@ func (m *Master) listenIncomingMsg(conn *net.UDPConn) {
 			log.Println(consts.White, "reading master failed")
 			log.Fatal(err)
 		}
-		/*log.Println(consts.White, string(buffer))*/
+		//log.Println(consts.White, string(buffer))
 		//log.Println(consts.White, buffer)
 		if len(buffer) > 0 {
 			//log.Println(consts.White, string(buffer))

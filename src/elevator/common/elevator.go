@@ -199,6 +199,7 @@ func (e *Elevator) SetStopButton(stop bool) {
 	e.mux.Lock()
 	defer e.mux.Unlock()
 	e.stopButton = stop
+	WriteStopLamp(stop)
 }
 
 func (e *Elevator) SetObstruction(obstruction bool) {
@@ -252,6 +253,9 @@ func (e *Elevator) SetHallProcessing(processing bool) {
 /**
  * Bunch of getters
  */
+func (e *Elevator) IsMoving() bool {
+	return e.GetDirection() != consts.MotorSTOP
+}
 func (e *Elevator) GetDirection() consts.MotorDirection {
 	e.mux.Lock()
 	defer e.mux.Unlock()
