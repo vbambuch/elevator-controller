@@ -35,9 +35,7 @@ func clearHallOrder(order consts.ButtonEvent) {
 	}
 }
 
-func handleNewOrder(order consts.ButtonEvent, changeOrderChan chan<- bool) (bool) {
-	orderInterrupted := false
-
+func handleNewOrder(order consts.ButtonEvent, changeOrderChan chan<- bool, orderInterrupted bool) (bool) {
 	if order.Button == consts.ButtonCAB {
 		WriteButtonLamp(order.Button, order.Floor, true)
 		log.Println(consts.Blue, "Pushed cab call", order, consts.Neutral)
@@ -88,10 +86,10 @@ func sendElevatorToFloor(order consts.ButtonEvent, onFloorChan chan<- bool, chan
 	for {
 		select {
 		case <-changeOrderChan:
-			log.Println(consts.Yellow, "Change order:", order, consts.Neutral)
+			log.Println(consts.Yellow, "Order", order, "has been changed", consts.Neutral)
 			return
 		case <-stopMovingChan:
-			log.Println(consts.Yellow, "Interrupted by stop button", order, consts.Neutral)
+			log.Println(consts.Yellow, "Order", order, "interrupted by stop button", consts.Neutral)
 			ElevatorState.SetDirection(consts.MotorSTOP)
 			return
 		default:
@@ -141,7 +139,7 @@ func ButtonsHandler(
 		case button := <-localButtonsChan:
 			if button.Button == consts.ButtonCAB {		// cab button pressed
 				if ElevatorState.NewOrder(button) {
-					orderInterrupted = handleNewOrder(button, changeOrderChan)
+					orderInterrupted = handleNewOrder(button, changeOrderChan, orderInterrupted)
 				}
 			} else { 									// hall button pressed
 				notification := consts.NotificationData{
@@ -155,9 +153,11 @@ func ButtonsHandler(
 				}
 			}
 
-		case hallOrder := <-remoteHallButtonChan:
-			ElevatorState.SetHallProcessing(true)
-			orderInterrupted = handleNewOrder(hallOrder, changeOrderChan)
+		case button := <-remoteHallButtonChan:
+			if ElevatorState.NewOrder(button) {
+				ElevatorState.SetHallProcessing(true)
+				orderInterrupted = handleNewOrder(button, changeOrderChan, orderInterrupted)
+			}
 
 		case <- obstructChan:
 			ElevatorState.SetDirection(consts.MotorSTOP)
@@ -168,11 +168,12 @@ func ButtonsHandler(
 			log.Printf("stop: %+v\n", stop)
 			if stop && ElevatorState.GetStopButton() {
 				ElevatorState.SetStopButton(false)
+				log.Println(consts.Yellow, "Stop button released", consts.Neutral)
 			} else if stop {
 				ElevatorState.SetStopButton(true)
-				if ElevatorState.IsMoving() || ElevatorState.OrderArrayNotEmpty() {
-					stopMovingChan <- true
-					orderInterrupted = true
+				if ElevatorState.IsMoving() {
+					stopMovingChan <- true		// stop current movement
+					orderInterrupted = true		// when elevator stopped in middle floor (isn't free)
 				}
 			}
 
