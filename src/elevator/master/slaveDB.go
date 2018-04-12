@@ -90,7 +90,7 @@ func (i *SlavesDB) update(item consts.DBItem) {
 }
 
 func (i *SlavesDB) storeData(data consts.PeriodicData)  {
-	item := consts.DBItem{nil,0,data}
+	item := consts.DBItem{ClientConn: nil, Ignore: 0, Data: data}
 	i.update(item)
 }
 
@@ -124,7 +124,7 @@ func (i *SlavesDB) findElevatorOnFloor(floor int) interface{} {
 	var onFloorArray []consts.DBItem
 	for e := i.list.Front(); e != nil; e = e.Next() {
 		elItem := e.Value.(consts.DBItem)
-		if elItem.Data.Floor == floor && elItem.Data.Free {
+		if elItem.Data.Floor == floor && elItem.Data.Free && !elItem.Data.Stopped {
 			onFloorArray = append(onFloorArray, elItem)
 		}
 	}
@@ -140,7 +140,7 @@ func (i *SlavesDB) findFreeElevator(floor int) interface{} {
 	var freeArray []consts.FreeElevatorItem
 	for e := i.list.Front(); e != nil; e = e.Next() {
 		item := e.Value.(consts.DBItem)
-		if item.Data.Free {
+		if item.Data.Free && !item.Data.Stopped {
 			freeArray = append(freeArray, consts.FreeElevatorItem{
 				FloorDiff: math.Abs(float64(item.Data.Floor) - float64(floor)),
 				Data: item,
@@ -161,7 +161,8 @@ func (i *SlavesDB) findSameDirection(order consts.ButtonEvent) interface{} {
 		item := e.Value.(consts.DBItem)
 		//log.Println(consts.White, "db item", item)
 
-		if !item.Data.HallProcessing && suitableElevator(item.Data.OrderArray, item.Data.Floor, order) {
+		if !item.Data.HallProcessing && !item.Data.Stopped &&
+			suitableElevator(item.Data.OrderArray, item.Data.Floor, order) {
 			suitableArray = append(suitableArray, item)
 		} else {
 		//log.Println(consts.Yellow, "not suitable", item.data.OrderArray, consts.Neutral)

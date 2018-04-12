@@ -203,6 +203,7 @@ func PeriodicNotifications(ipAddr string) {
 			OrderArray:     ElevatorState.GetOrderArray(),
 			Free:           ElevatorState.GetFree(),
 			HallProcessing: ElevatorState.GetHallProcessing(),
+			Stopped:		ElevatorState.GetStopButton(),
 		}
 		notification := consts.NotificationData{
 			Code: consts.SlavePeriodicMsg,

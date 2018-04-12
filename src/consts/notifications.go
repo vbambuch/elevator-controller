@@ -31,4 +31,5 @@ type PeriodicData struct {
 	OrderArray     []ButtonEvent
 	Free           bool // elevator stopped on a floor and has empty cab call array
 	HallProcessing bool // elevator is processing hall order
+	Stopped		   bool
 }

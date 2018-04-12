@@ -76,6 +76,7 @@ func (m *Master) masterHallOrderHandler() {
 						OrderArray:     item.Data.OrderArray,
 						Free:           false,
 						HallProcessing: true,
+						Stopped:		item.Data.Stopped,
 					},
 				})
 
