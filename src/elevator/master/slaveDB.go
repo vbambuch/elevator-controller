@@ -116,6 +116,12 @@ func suitableElevator(cabArray []consts.ButtonEvent, currFloor int, hallOrder co
 	return false
 }
 
+// free variable overrides elData.Free
+// => "findSameDirection()" should return even if elevator isn't ready
+// => to be able to use one functions for two purposes
+func checkCommonConditions(elData consts.PeriodicData, free bool) bool {
+	return (elData.Free || free) && !elData.Stopped && !elData.HallProcessing
+}
 
 func (i *SlavesDB) findElevatorOnFloor(floor int) interface{} {
 	i.mux.Lock()
@@ -123,9 +129,10 @@ func (i *SlavesDB) findElevatorOnFloor(floor int) interface{} {
 
 	var onFloorArray []consts.DBItem
 	for e := i.list.Front(); e != nil; e = e.Next() {
-		elItem := e.Value.(consts.DBItem)
-		if elItem.Data.Floor == floor && elItem.Data.Free && !elItem.Data.Stopped {
-			onFloorArray = append(onFloorArray, elItem)
+		slave := e.Value.(consts.DBItem)
+		// doesn't need to be free neither after hall-processing
+		if slave.Data.Floor == floor && !slave.Data.Stopped {
+			onFloorArray = append(onFloorArray, slave)
 		}
 	}
 
@@ -139,11 +146,11 @@ func (i *SlavesDB) findFreeElevator(floor int) interface{} {
 
 	var freeArray []consts.FreeElevatorItem
 	for e := i.list.Front(); e != nil; e = e.Next() {
-		item := e.Value.(consts.DBItem)
-		if item.Data.Free && !item.Data.Stopped {
+		slave := e.Value.(consts.DBItem)
+		if checkCommonConditions(slave.Data, false) {
 			freeArray = append(freeArray, consts.FreeElevatorItem{
-				FloorDiff: math.Abs(float64(item.Data.Floor) - float64(floor)),
-				Data: item,
+				FloorDiff: math.Abs(float64(slave.Data.Floor) - float64(floor)),
+				Data:      slave,
 			})
 		}
 	}
@@ -158,14 +165,14 @@ func (i *SlavesDB) findSameDirection(order consts.ButtonEvent) interface{} {
 
 	var suitableArray []consts.DBItem
 	for e := i.list.Front(); e != nil; e = e.Next() {
-		item := e.Value.(consts.DBItem)
-		//log.Println(consts.White, "db item", item)
+		slave := e.Value.(consts.DBItem)
+		//log.Println(consts.White, "db slave", slave)
 
-		if !item.Data.HallProcessing && !item.Data.Stopped &&
-			suitableElevator(item.Data.OrderArray, item.Data.Floor, order) {
-			suitableArray = append(suitableArray, item)
+		if checkCommonConditions(slave.Data, true) &&
+			suitableElevator(slave.Data.OrderArray, slave.Data.Floor, order) {
+			suitableArray = append(suitableArray, slave)
 		} else {
-		//log.Println(consts.Yellow, "not suitable", item.data.OrderArray, consts.Neutral)
+		//log.Println(consts.Yellow, "not suitable", slave.data.OrderArray, consts.Neutral)
 		}
 	}
 

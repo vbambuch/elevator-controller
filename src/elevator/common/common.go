@@ -31,16 +31,16 @@ func clearHallOrder(order consts.ButtonEvent) {
 
 	msg := GetNotification(notification)
 	if ElevatorState.sendToMaster(msg) {
-		//log.Println(consts.Blue, "-> clear hall order:", order, consts.Neutral)
+		//log.Println(consts.Cyan, "-> clear hall order:", order, consts.Neutral)
 	}
 }
 
 func handleNewOrder(order consts.ButtonEvent, changeOrderChan chan<- bool, orderInterrupted bool) (bool) {
 	if order.Button == consts.ButtonCAB {
 		WriteButtonLamp(order.Button, order.Floor, true)
-		log.Println(consts.Blue, "Pushed cab call", order, consts.Neutral)
+		log.Println(consts.Cyan, "Pushed cab call", order, consts.Neutral)
 	} else {
-		log.Println(consts.Blue, "Pushed hall call", order, consts.Neutral)
+		log.Println(consts.Cyan, "Pushed hall call", order, consts.Neutral)
 	}
 
 	// elevator is going somewhere => sendElevatorToFloor goroutine has been executed
@@ -49,7 +49,7 @@ func handleNewOrder(order consts.ButtonEvent, changeOrderChan chan<- bool, order
 		orderInterrupted = true
 	}
 	ElevatorState.InsertToOrderArray(order)
-	//log.Println(consts.Yellow, "Curr cab array:", ElevatorState.GetOrderArray(), consts.Neutral)
+	//log.Println(consts.Blue, "Curr cab array:", ElevatorState.GetOrderArray(), consts.Neutral)
 
 	return orderInterrupted
 }
@@ -63,7 +63,7 @@ func handleReachedDestination(order consts.ButtonEvent)  {
 	if order.Button != consts.ButtonCAB {
 		clearHallOrder(order) // distribute to all elevators through Master
 	}
-	log.Println(consts.Blue, "Clear order", order, consts.Neutral)
+	log.Println(consts.Cyan, "Clear order", order, consts.Neutral)
 }
 
 
@@ -86,10 +86,10 @@ func sendElevatorToFloor(order consts.ButtonEvent, onFloorChan chan<- bool, chan
 	for {
 		select {
 		case <-changeOrderChan:
-			log.Println(consts.Yellow, "Order", order, "has been changed", consts.Neutral)
+			log.Println(consts.Blue, "Order", order, "has been changed", consts.Neutral)
 			return
 		case <-stopMovingChan:
-			log.Println(consts.Yellow, "Order", order, "interrupted by stop button", consts.Neutral)
+			log.Println(consts.Blue, "Order", order, "interrupted by stop button", consts.Neutral)
 			ElevatorState.SetDirection(consts.MotorSTOP)
 			return
 		default:
@@ -117,6 +117,7 @@ func ButtonsHandler(
 	var timeout = time.NewTimer(0)
 	free := false
 	orderInterrupted := false
+
 	onFloorChan := make(chan bool)
 	changeOrderChan := make(chan bool)
 	stopMovingChan := make(chan bool)
@@ -149,7 +150,7 @@ func ButtonsHandler(
 
 				msg := GetNotification(notification)
 				if ElevatorState.sendToMaster(msg) {
-					log.Println(consts.Blue, "-> hall order:", button, consts.Neutral)
+					log.Println(consts.Cyan, "-> hall order:", button, consts.Neutral)
 				}
 			}
 
@@ -159,18 +160,28 @@ func ButtonsHandler(
 				orderInterrupted = handleNewOrder(button, changeOrderChan, orderInterrupted)
 			}
 
-		case <- obstructChan:
-			ElevatorState.SetDirection(consts.MotorSTOP)
-			// TODO close all connections and end peacefully
-			log.Panic(consts.Red, "OBSTRUCTION! PANIC!", consts.Yellow)
+		case button := <- obstructChan:
+			if button {
+				log.Println(consts.Blue, "Obstruction! Stoping elevator...", consts.Neutral)
+				ElevatorState.SetDirection(consts.MotorSTOP)
+				ElevatorState.SetFree(false)
+				ElevatorState.SetStopButton(true, false)
+				orderInterrupted = true
+			} else {
+				log.Println(consts.Blue, "Reinitializing elevator IO...", consts.Neutral)
+				ReInitIO()
+				ElevatorState.SetFree(true)
+				ElevatorState.SetStopButton(false, false)
+			}
+			//log.Panic(consts.Red, "OBSTRUCTION! PANIC!", consts.Blue)
 
 		case stop := <- stopChan:
 			log.Printf("stop: %+v\n", stop)
 			if stop && ElevatorState.GetStopButton() {
-				ElevatorState.SetStopButton(false)
-				log.Println(consts.Yellow, "Stop button released", consts.Neutral)
+				ElevatorState.SetStopButton(false, true)
+				log.Println(consts.Blue, "Stop button released", consts.Neutral)
 			} else if stop {
-				ElevatorState.SetStopButton(true)
+				ElevatorState.SetStopButton(true, true)
 				if ElevatorState.IsMoving() {
 					stopMovingChan <- true		// stop current movement
 					orderInterrupted = true		// when elevator stopped in middle floor (isn't free)
@@ -183,7 +194,7 @@ func ButtonsHandler(
 				if ElevatorState.OrderArrayNotEmpty() && (free || orderInterrupted) {
 					// get first cab order
 					order := ElevatorState.GetOrder()
-					log.Println(consts.Blue, "Read from order array", order, consts.Neutral)
+					log.Println(consts.Cyan, "Read from order array", order, consts.Neutral)
 					go sendElevatorToFloor(order, onFloorChan, changeOrderChan, stopMovingChan)
 					free = false
 					orderInterrupted = false
@@ -212,7 +223,7 @@ func PeriodicNotifications(ipAddr string) {
 
 		msg := GetNotification(notification)
 		if ElevatorState.sendToMaster(msg) {
-			//log.Println(consts.Blue, "-> periodic", *e.orderArray, consts.Neutral)
+			//log.Println(consts.Cyan, "-> periodic", *e.orderArray, consts.Neutral)
 		}
 		//time.Sleep(1 * time.Second)
 		time.Sleep(consts.PollRate)
@@ -227,35 +238,35 @@ func ListenIncomingMsg(receivedHallChan chan<- consts.ButtonEvent, conn *net.UDP
 	for {
 		n, err := conn.Read(buffer[0:])
 		if err != nil {
-			log.Println(consts.Blue, "reading slave failed", consts.Neutral)
+			log.Println(consts.Red, "reading slave failed", consts.Neutral)
 			log.Fatal(err)
 		}
-		//log.Println(consts.Blue, buffer, consts.Neutral)
+		//log.Println(consts.Cyan, buffer, consts.Neutral)
 		if len(buffer) > 0 {
-			//log.Println(consts.Blue, string(buffer), consts.Neutral)
+			//log.Println(consts.Cyan, string(buffer), consts.Neutral)
 			err2 := json.Unmarshal(buffer[0:n], &typeJson)
 			if err2 != nil {
-				log.Println(consts.Blue, "unmarshal slave failed", consts.Neutral)
+				log.Println(consts.Red, "unmarshal slave failed", consts.Neutral)
 				log.Fatal(err2)
 			} else {
 
-				//log.Println(consts.Blue, "<- received typeJson", typeJson, consts.Neutral)
+				//log.Println(consts.Cyan, "<- received typeJson", typeJson, consts.Neutral)
 
 				switch typeJson.Code {
 				case consts.MasterHallOrder:
 					order := consts.ButtonEvent{}
 					json.Unmarshal(typeJson.Data, &order)
-					log.Println(consts.Blue, "<- hall order:", order, consts.Neutral)
+					log.Println(consts.Cyan, "<- hall order:", order, consts.Neutral)
 					receivedHallChan <- order
 				case consts.MasterHallLight:
 					order := consts.ButtonEvent{}
 					json.Unmarshal(typeJson.Data, &order)
-					//log.Println(consts.Blue, "<- hall light:", order, consts.Neutral)
+					//log.Println(consts.Cyan, "<- hall light:", order, consts.Neutral)
 					WriteButtonLamp(order.Button, order.Floor, true)
 				case consts.ClearHallOrder:
 					order := consts.ButtonEvent{}
 					json.Unmarshal(typeJson.Data, &order)
-					//log.Println(consts.Blue, "<- clear order:", order, consts.Neutral)
+					//log.Println(consts.Cyan, "<- clear order:", order, consts.Neutral)
 					ElevatorState.ClearOrderButton(order)
 				}
 			}

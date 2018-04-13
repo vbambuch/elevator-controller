@@ -12,6 +12,17 @@ var initialized = false
 var mutex sync.Mutex
 var connect net.Conn
 
+func ReInitIO()  {
+	if connect != nil {
+		connect.Close()
+	}
+	var err error
+	connect, err = net.Dial("tcp", consts.LocalAddress+consts.ElevatorPort)
+	if err != nil {
+		panic(err.Error())
+	}
+	initialized = true
+}
 
 func InitIO() {
 	if initialized {
