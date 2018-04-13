@@ -8,6 +8,7 @@ import (
 	"network"
 	"helper"
 	"math"
+	"time"
 )
 
 
@@ -67,14 +68,16 @@ func (i *SlavesDB) update(item consts.DBItem) {
 			if v.Ignore > 0 {
 				e.Value = consts.DBItem{
 					ClientConn: v.ClientConn,	// keep previous conn
-					Ignore: v.Ignore -1,
-					Data: v.Data,
+					Ignore: 	v.Ignore -1,
+					Timestamp: 	item.Timestamp,	// always update timestamp
+					Data: 		v.Data,
 				}
 			} else {
 				e.Value = consts.DBItem{
 					ClientConn: v.ClientConn,	// keep previous conn
-					Ignore: item.Ignore,
-					Data: item.Data,
+					Ignore: 	item.Ignore,
+					Timestamp: 	item.Timestamp,
+					Data: 		item.Data,
 				}
 			}
 			return
@@ -90,10 +93,28 @@ func (i *SlavesDB) update(item consts.DBItem) {
 }
 
 func (i *SlavesDB) storeData(data consts.PeriodicData)  {
-	item := consts.DBItem{ClientConn: nil, Ignore: 0, Data: data}
+	item := consts.DBItem{
+		ClientConn:	nil,
+		Ignore: 	0,
+		Timestamp: 	time.Now(),
+		Data: 		data,
+	}
 	i.update(item)
 }
 
+func (i *SlavesDB) deleteOutdatedSlaves()  {
+	i.mux.Lock()
+	defer i.mux.Unlock()
+
+	for e := i.list.Front(); e != nil; e = e.Next() {
+		slave := e.Value.(consts.DBItem)
+		if time.Since(slave.Timestamp).Seconds() > 2 {
+			slave.ClientConn.Close()
+			i.list.Remove(e)
+			log.Println(consts.Magenta, "Deleted:", slave.Data.ListenIP, consts.Neutral)
+		}
+	}
+}
 
 
 /*
@@ -182,6 +203,9 @@ func (i *SlavesDB) findSameDirection(order consts.ButtonEvent) interface{} {
 
 // Main function for elevator searching
 func (i *SlavesDB) findElevator(order consts.ButtonEvent) interface{} {
+	// filter out outdated slaves from DB
+	i.deleteOutdatedSlaves()
+
 	message := "on floor"
 	elevator := i.findElevatorOnFloor(order.Floor)
 	if elevator == nil {

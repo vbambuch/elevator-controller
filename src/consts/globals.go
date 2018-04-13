@@ -67,9 +67,10 @@ type FreeElevatorItem struct {
 }
 
 type DBItem struct {
-	ClientConn *net.UDPConn
-	Ignore     int //ignore number of incoming messages
-	Data       PeriodicData
+	ClientConn 	*net.UDPConn
+	Ignore     	int //ignore number of incoming messages
+	Timestamp	time.Time
+	Data       	PeriodicData
 }
 
 

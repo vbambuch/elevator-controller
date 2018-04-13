@@ -64,11 +64,12 @@ func (m *Master) masterHallOrderHandler() {
 				//log.Println(consts.Red, "elData:", elData, consts.Neutral)
 
 				// force this elevator to busy (don't wait for periodic update)
-				// ignore next 5 updates from specific slave
+				// ignore next 10 updates from specific slave
 				item := elData.(consts.DBItem)
 				db.update(consts.DBItem{
-					ClientConn: item.ClientConn,
-					Ignore: 10,
+					ClientConn: 	item.ClientConn,
+					Ignore: 		10,
+					Timestamp: 		item.Timestamp,
 					Data: consts.PeriodicData{
 						ListenIP:       item.Data.ListenIP,
 						Floor:          item.Data.Floor,

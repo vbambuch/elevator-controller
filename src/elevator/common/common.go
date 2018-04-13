@@ -168,12 +168,11 @@ func ButtonsHandler(
 				ElevatorState.SetStopButton(true, false)
 				orderInterrupted = true
 			} else {
-				log.Println(consts.Blue, "Reinitializing elevator IO...", consts.Neutral)
+				log.Println(consts.Blue, "Reinitializing elevator I/O...", consts.Neutral)
 				ReInitIO()
 				ElevatorState.SetFree(true)
 				ElevatorState.SetStopButton(false, false)
 			}
-			//log.Panic(consts.Red, "OBSTRUCTION! PANIC!", consts.Blue)
 
 		case stop := <- stopChan:
 			log.Printf("stop: %+v\n", stop)
