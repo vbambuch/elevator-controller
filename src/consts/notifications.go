@@ -16,6 +16,8 @@ const (
 	MasterHallLight                    = 2
 	MasterHallOrder                    = 3
 	MasterBroadcastIP                  = 4
+	FindRole						   = 6
+	NewSlave						   = 7
 )
 
 type NotificationData struct {
@@ -33,3 +35,4 @@ type PeriodicData struct {
 	HallProcessing bool // elevator is processing hall order
 	Stopped		   bool
 }
+

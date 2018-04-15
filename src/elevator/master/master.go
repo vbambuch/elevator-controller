@@ -286,6 +286,41 @@ func (m *Master) listenIncomingMsg(conn *net.UDPConn) {
 					Data: common.GetRawJSON(order),
 				}
 				m.broadcastToSlaves(notification)
+
+			case consts.NewSlave:
+				var ip string
+				json.Unmarshal(typeJson.Data, &ip)
+
+				clientConn := network.GetSendConn(ip)
+
+				item := consts.DBItem{
+					ClientConn: clientConn,
+					Data: 		consts.PeriodicData{
+						ListenIP: ip,
+					},
+				}
+
+				tmpDB := m.getDB()
+				tmpList := tmpDB.getList()
+				tmpList.PushBack(item)
+
+				if tmpList.Len() == 2{
+					role := consts.Backup
+					notification := consts.NotificationData{
+						Code: consts.FindRole,
+						Data: common.GetRawJSON(role),
+					}
+					m.sendToSlave(clientConn, notification)
+
+				} else {
+					role := consts.Slave
+					notification := consts.NotificationData{
+						Code: consts.FindRole,
+						Data: common.GetRawJSON(role),
+					}
+					m.sendToSlave(clientConn, notification)
+				}
+
 			}
 		}
 

@@ -54,7 +54,7 @@ type Elevator struct {
 /**
  * Common functions
  */
-func (e *Elevator) sendToMaster(data consts.Notification) bool {
+func (e *Elevator) SendToMaster(data consts.Notification) bool {
 	e.mux.Lock()
 	defer e.mux.Unlock()
 

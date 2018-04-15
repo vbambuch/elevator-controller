@@ -30,7 +30,7 @@ func clearHallOrder(order consts.ButtonEvent) {
 	}
 
 	msg := GetNotification(notification)
-	if ElevatorState.sendToMaster(msg) {
+	if ElevatorState.SendToMaster(msg) {
 		//log.Println(consts.Cyan, "-> clear hall order:", order, consts.Neutral)
 	}
 }
@@ -149,7 +149,7 @@ func ButtonsHandler(
 				}
 
 				msg := GetNotification(notification)
-				if ElevatorState.sendToMaster(msg) {
+				if ElevatorState.SendToMaster(msg) {
 					log.Println(consts.Cyan, "-> hall order:", button, consts.Neutral)
 				}
 			}
@@ -221,7 +221,7 @@ func PeriodicNotifications(ipAddr string) {
 		}
 
 		msg := GetNotification(notification)
-		if ElevatorState.sendToMaster(msg) {
+		if ElevatorState.SendToMaster(msg) {
 			//log.Println(consts.Cyan, "-> periodic", *e.orderArray, consts.Neutral)
 		}
 		//time.Sleep(1 * time.Second)

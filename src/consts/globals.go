@@ -14,7 +14,7 @@ const LocalAddress = "localhost:"
 const MasterPort = "56789"
 var ElevatorPort = ""
 
-
+var MasterBroadCast = ""
 
 // Elevator consts
 const DefaultValue = -2
