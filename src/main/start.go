@@ -25,11 +25,11 @@ func startCommonProcedures(
 
 	receivedHallChan := make(chan consts.ButtonEvent)
 
-	ipAddr := consts.LocalAddress+consts.MyPort
-	conn := network.GetListenConn(ipAddr)
-
 	masterConn := network.GetSendConn(consts.BSendAddress)
 	common.ElevatorState.SetMasterConn(masterConn)
+
+	ipAddr := network.IncreasePortForAddress(masterConn.LocalAddr().String())
+	conn := network.GetListenConn(ipAddr)
 
 	go common.PeriodicNotifications(ipAddr)
 	go common.ListenIncomingMsg(receivedHallChan, conn)
@@ -88,29 +88,29 @@ func errorHandler(errorChan <-chan consts.ElevatorError, newRoleChan chan<- bool
 func main() {
 	numFloors := flag.Int("numFloors", 4, "elevator id")
 	id := flag.Int("id", 0, "elevator id")
+	elPort := flag.String("elPort", "15657", "my elevator port")
 
 	// TODO remove when network is done...
 	//masterPort := flag.String("masterPort", "20002", "master localhost port")
-	myPort := flag.String("myPort", "20000", "my localhost port")
-	elPort := flag.String("elPort", "20001", "my elevator port")
+	//myPort := flag.String("myPort", "20000", "my localhost port")
 	myRole := flag.Int("myRole", 1, "1: Master, 2: Backup, 3: Slave")
 	flag.Parse()
 
 	//log.Println(consts.Green, "Master port:", *masterPort, consts.Neutral)
 	//log.Println(consts.Green, "My port:", *myPort, consts.Neutral)
 
-	//log.Println(consts.Green, "My elevator port:", *elPort, consts.Neutral)
 	//log.Println(consts.Green, "My role:", *myRole, consts.Neutral)
 
 	consts.ElevatorPort = *elPort
 	//consts.MasterPort = *masterPort
-	consts.MyPort = *myPort
+	//consts.MyPort = *myPort
 
 	// TODO ...remove when network is done
 
 
 	log.Println(consts.Green, "Elevator ID:", *id, consts.Neutral)
 	log.Println(consts.Green, "Number of floors:", *numFloors, consts.Neutral)
+	log.Println(consts.Green, "Elevator port:", *elPort, consts.Neutral)
 
 	consts.NumFloors = *numFloors
 	consts.MaxFloor = *numFloors - 1

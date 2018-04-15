@@ -181,7 +181,7 @@ func (m *Master) masterHallOrderHandler() {
 				// order is in progress => wait for resolving
 				// skip whit order meanwhile
 				m.assignedToSlave(order, ip)
-				m.dumpList()
+				//m.dumpList()
 
 				log.Println(consts.White, ip, ": parsed order", order, consts.Neutral)
 				//m.getList().Dump()

@@ -15,8 +15,7 @@ var BListenAddress = "0.0.0.0:"+masterPort
 var BSendAddress = "255.255.255.255:"+masterPort
 //const BroadcastPort = "50000"
 const masterPort = "56789"
-var ElevatorPort = "15657" 	// TODO change back to const
-var MyPort = "20001"       	// TODO change back to const
+var ElevatorPort = ""
 
 
 
