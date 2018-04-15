@@ -304,7 +304,7 @@ func (m *Master) listenIncomingMsg(conn *net.UDPConn) {
  * do same things as Slave
  */
 func StartMaster() {
-	listenConn := network.GetListenConn(consts.BListenAddress)
+	listenConn := network.GetListenConn(network.GetBroadcastAddress()+consts.MasterPort)
 
 	slavesDB := SlavesDB{}
 	master := Master{

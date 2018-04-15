@@ -25,7 +25,7 @@ func startCommonProcedures(
 
 	receivedHallChan := make(chan consts.ButtonEvent)
 
-	masterConn := network.GetSendConn(consts.BSendAddress)
+	masterConn := network.GetSendConn(network.GetBroadcastAddress()+consts.MasterPort)
 	common.ElevatorState.SetMasterConn(masterConn)
 
 	ipAddr := network.IncreasePortForAddress(masterConn.LocalAddr().String())

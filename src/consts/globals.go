@@ -11,10 +11,7 @@ var MaxFloor int
 const MiddleFloor = -1
 
 const LocalAddress = "localhost:"
-var BListenAddress = "0.0.0.0:"+masterPort
-var BSendAddress = "255.255.255.255:"+masterPort
-//const BroadcastPort = "50000"
-const masterPort = "56789"
+const MasterPort = "56789"
 var ElevatorPort = ""
 
 

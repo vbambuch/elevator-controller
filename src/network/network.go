@@ -32,13 +32,39 @@ func GetListenConn(ipAddr string) (*net.UDPConn) {
 	return conn
 }
 
+func splitAddress(address string) (string, int) {
+	re, _ := regexp.Compile("(.*):(.*)")
+	match := re.FindStringSubmatch(address)
+	port, _ := strconv.Atoi(match[2])
+
+	return match[1], port
+}
+
 func IncreasePortForAddress(addr string) string {
-	re := regexp.MustCompile("(.*):(.*)")
-	match := re.FindStringSubmatch(addr)
+	localAddr, localPort := splitAddress(addr)
 
-	localAddr:= match[1]
-	tmpPort, _ := strconv.Atoi(match[2])
-	localPort := tmpPort + 1
+	return localAddr+":"+strconv.Itoa(localPort+1)
+}
 
-	return localAddr+":"+strconv.Itoa(localPort)
+func getPrivateAddress() string {
+	conn := GetSendConn("8.8.8.8:80")
+	if conn != nil {
+		addr, _ := splitAddress(conn.LocalAddr().String())
+		conn.Close()
+		return addr
+	}
+	return ""
+}
+
+func replaceLastOctet(addr string, octet string) string {
+	re, _ := regexp.Compile("([0-9]+)$")
+	return re.ReplaceAllString(addr, octet)
+}
+
+func GetBroadcastAddress() string {
+	return replaceLastOctet(getPrivateAddress(), "255")+":"
+}
+
+func GetNetworkAddress() string {
+	return replaceLastOctet(getPrivateAddress(), "0")+":"
 }
