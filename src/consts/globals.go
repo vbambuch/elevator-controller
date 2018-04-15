@@ -6,15 +6,15 @@ import (
 )
 
 const MinFloor = 0
-const MaxFloor = 3
-const NumFloors = MaxFloor + 1
+var NumFloors int
+var MaxFloor int
 const MiddleFloor = -1
 
 const LocalAddress = "localhost:"
 var BListenAddress = "0.0.0.0:"+masterPort
 var BSendAddress = "255.255.255.255:"+masterPort
 //const BroadcastPort = "50000"
-const masterPort = "40000"
+const masterPort = "56789"
 var ElevatorPort = "15657" 	// TODO change back to const
 var MyPort = "20001"       	// TODO change back to const
 

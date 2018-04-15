@@ -86,6 +86,8 @@ func errorHandler(errorChan <-chan consts.ElevatorError, newRoleChan chan<- bool
 //var incomingMsg = make(chan consts.Message, 10)
 
 func main() {
+	numFloors := flag.Int("numFloors", 4, "elevator id")
+	id := flag.Int("id", 0, "elevator id")
 
 	// TODO remove when network is done...
 	//masterPort := flag.String("masterPort", "20002", "master localhost port")
@@ -105,6 +107,13 @@ func main() {
 	consts.MyPort = *myPort
 
 	// TODO ...remove when network is done
+
+
+	log.Println(consts.Green, "Elevator ID:", *id, consts.Neutral)
+	log.Println(consts.Green, "Number of floors:", *numFloors, consts.Neutral)
+
+	consts.NumFloors = *numFloors
+	consts.MaxFloor = *numFloors - 1
 
 	errorChan := make(chan consts.ElevatorError)
 	newRoleChan := make(chan bool)
