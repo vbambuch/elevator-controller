@@ -101,6 +101,21 @@ func (m *Master) makeHallOrderAvailable(ipAddr string)  {
 	}
 }
 
+func (m *Master) updateHallButtons(conn *net.UDPConn)  {
+	m.mux.Lock()
+	orderList := m.orderList.Front()
+	m.mux.Unlock()
+	for el := orderList; el != nil; el = el.Next() {
+		order := el.Value.(hallOrders).order
+		orderData := consts.NotificationData{
+			Code: consts.MasterHallLight,
+			Data: common.GetRawJSON(order),
+		}
+
+		m.sendToSlave(conn, orderData)
+	}
+}
+
 func (m *Master) dumpList() {
 	m.mux.Lock()
 	defer m.mux.Unlock()
@@ -117,10 +132,7 @@ func (m *Master) dumpList() {
 	log.Println(consts.Yellow, "-----", consts.Neutral)
 }
 
-
 func (m *Master) sendToSlave(conn *net.UDPConn, notification consts.NotificationData) {
-	m.mux.Lock()
-	defer m.mux.Unlock()
 	data := common.GetNotification(notification)
 	if conn != nil {
 		//log.Println(consts.White, "Send to:", conn.RemoteAddr(), consts.Neutral)
@@ -163,7 +175,9 @@ func (m *Master) masterHallOrderHandler() {
 				// ignore next 10 updates from specific slave
 				item := elData.(consts.DBItem)
 				ip := item.Data.ListenIP
-				db.update(consts.DBItem{
+
+				// ignore return value for this case
+				db.updateOrInsert(consts.DBItem{
 					ClientConn: 	item.ClientConn,
 					Ignore: 		10,
 					Timestamp: 		item.Timestamp,
@@ -185,7 +199,6 @@ func (m *Master) masterHallOrderHandler() {
 
 				log.Println(consts.White, ip, ": parsed order", order, consts.Neutral)
 				//m.getList().Dump()
-
 
 				orderData := consts.NotificationData{
 					Code: consts.MasterHallOrder,
@@ -230,7 +243,11 @@ func (m *Master) listenIncomingMsg(conn *net.UDPConn) {
 				data := consts.PeriodicData{} // for parsing of incoming message
 				json.Unmarshal(typeJson.Data, &data)
 
-				m.getDB().storeData(data)
+				conn := m.getDB().storeData(data)
+				// new elevator has been connected => update its hall buttons
+				if conn != nil {
+					m.updateHallButtons(conn)
+				}
 
 				//m.getDB().dump()
 			case consts.SlaveHallOrder:

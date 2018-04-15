@@ -9,6 +9,7 @@ import (
 	"helper"
 	"math"
 	"time"
+	"net"
 )
 
 
@@ -54,7 +55,7 @@ func (i *SlavesDB) exists(ip string) (bool) {
 	return false
 }
 
-func (i *SlavesDB) update(item consts.DBItem) {
+func (i *SlavesDB) updateOrInsert(item consts.DBItem) *net.UDPConn {
 	i.mux.Lock()
 	defer i.mux.Unlock()
 
@@ -80,7 +81,7 @@ func (i *SlavesDB) update(item consts.DBItem) {
 					Data: 		item.Data,
 				}
 			}
-			return
+			return nil
 		}
 	}
 	//log.Println(consts.Yellow, "trying to push", consts.Neutral)
@@ -89,17 +90,19 @@ func (i *SlavesDB) update(item consts.DBItem) {
 	item.ClientConn = clientConn
 	i.list.PushBack(item)
 	log.Println(consts.White, "ListenIP:", item.Data.ListenIP, consts.Neutral)
+
+	return clientConn
 	//log.Println(consts.White, "Conn:", item.clientConn.RemoteAddr(), consts.Neutral)
 }
 
-func (i *SlavesDB) storeData(data consts.PeriodicData)  {
+func (i *SlavesDB) storeData(data consts.PeriodicData) *net.UDPConn {
 	item := consts.DBItem{
 		ClientConn:	nil,
 		Ignore: 	0,
 		Timestamp: 	time.Now(),
 		Data: 		data,
 	}
-	i.update(item)
+	return i.updateOrInsert(item)
 }
 
 func (i *SlavesDB) deleteOutdatedSlaves() string {
