@@ -6,7 +6,7 @@
 
 **Start elevator and override params:**
 - `./SimElevatorServer --port 20001`
-- `go build src/main/start.go; ./start -masterPort 40000 -myPort 20000 -elPort 20001 -myRole 1`
+- `go build src/main/start.go; ./start -elPort 20001 -myRole 1`
 
 
 ## TODO list
