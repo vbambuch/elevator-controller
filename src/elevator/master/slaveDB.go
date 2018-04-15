@@ -102,7 +102,7 @@ func (i *SlavesDB) storeData(data consts.PeriodicData)  {
 	i.update(item)
 }
 
-func (i *SlavesDB) deleteOutdatedSlaves()  {
+func (i *SlavesDB) deleteOutdatedSlaves() string {
 	i.mux.Lock()
 	defer i.mux.Unlock()
 
@@ -112,8 +112,10 @@ func (i *SlavesDB) deleteOutdatedSlaves()  {
 			slave.ClientConn.Close()
 			i.list.Remove(e)
 			log.Println(consts.Magenta, "Deleted:", slave.Data.ListenIP, consts.Neutral)
+			return slave.Data.ListenIP
 		}
 	}
+	return consts.NoOutdated
 }
 
 
@@ -203,9 +205,6 @@ func (i *SlavesDB) findSameDirection(order consts.ButtonEvent) interface{} {
 
 // Main function for elevator searching
 func (i *SlavesDB) findElevator(order consts.ButtonEvent) interface{} {
-	// filter out outdated slaves from DB
-	i.deleteOutdatedSlaves()
-
 	message := "on floor"
 	elevator := i.findElevatorOnFloor(order.Floor)
 	if elevator == nil {

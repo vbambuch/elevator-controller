@@ -25,6 +25,8 @@ const DefaultValue = -2
 var DefaultOrder = ButtonEvent{DefaultValue, DefaultValue}
 type MotorDirection int
 const PollRate = 20 * time.Millisecond
+const Unassigned = "UnassignedHallOrder"
+const NoOutdated  = "NoOutdatedElevator"
 
 const (
 	MotorUP   MotorDirection = 1

@@ -30,7 +30,6 @@ package consts
 
 import (
 	"sync"
-	"log"
 )
 
 type queuenode struct {
@@ -134,17 +133,4 @@ func (q *Queue) NewOrder(order ButtonEvent) bool {
 	//log.Println(Green, "Is new:", order, Neutral)
 
 	return true
-}
-
-func (q *Queue) Dump() {
-	q.Lock.Lock()
-	tmp := *q
-	q.Lock.Unlock()
-	log.Println(Yellow, "----------", Neutral)
-	for el := tmp.Peek(); el != nil; el = tmp.Pop() {
-		data := el.(ButtonEvent)
-		log.Print(Yellow, "Floor:", data.Floor, " Button:", data.Button, Neutral)
-	}
-	log.Println()
-	log.Println(Yellow, "-----", Neutral)
 }
