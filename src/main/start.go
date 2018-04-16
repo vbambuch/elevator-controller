@@ -17,7 +17,9 @@ func roleDecision()  {
 	//common.ElevatorState.SetMasterConn()
 }
 
-
+/**
+ * Run several goroutines that are the same for every role
+ */
 func startCommonProcedures(
 	buttonsChan <-chan consts.ButtonEvent,
 	obstructChan <-chan bool,
@@ -36,27 +38,33 @@ func startCommonProcedures(
 	go common.ButtonsHandler(buttonsChan, receivedHallChan, obstructChan, stopChan)
 }
 
-func roleChangeHandler(orderChan <-chan consts.ButtonEvent, newRoleChan <-chan bool)  {
+func resolveRoleChange(masterFailed chan<- consts.BackupSync, backupData consts.BackupSync)  {
+	switch common.ElevatorState.GetRole() {
+	case consts.Master:
+		log.Println(consts.Blue, "It's master", consts.Neutral)
+		go master.StartMaster(backupData)
+	case consts.Backup:
+		log.Println(consts.Blue, "It's backup", consts.Neutral)
+		go slave.StartBackup(masterFailed)
+	case consts.Slave:
+		log.Println(consts.Blue, "It's slave", consts.Neutral)
+	}
+}
+
+func roleChangeHandler(newRoleChan <-chan bool)  {
 	//started := false
 	//finish := make(chan bool)
+	masterFailed := make(chan consts.BackupSync)
+	backupData := consts.BackupSync{}
 
 	for {
-		<- newRoleChan
-		//if started {
-		//	finish <- true
-		//}
-		//started = true
-
-		switch common.ElevatorState.GetRole() {
-		case consts.Master:
-			log.Println(consts.Blue, "It's master", consts.Neutral)
-			go master.StartMaster()
-		case consts.Backup:
-			log.Println(consts.Blue, "It's backup", consts.Neutral)
-			go slave.StartBackup(orderChan)
-		case consts.Slave:
-			log.Println(consts.Blue, "It's slave", consts.Neutral)
-			//go slave.StartSlave(orderChan, masterConn)
+		select {
+		case <- newRoleChan:
+			resolveRoleChange(masterFailed, backupData)
+		case backupData = <- masterFailed:
+			log.Println(consts.Yellow, "backup data:", backupData, consts.Neutral)
+			common.ElevatorState.SetRole(consts.Master)
+			resolveRoleChange(masterFailed, backupData)
 		}
 	}
 }
@@ -80,10 +88,6 @@ func errorHandler(errorChan <-chan consts.ElevatorError, newRoleChan chan<- bool
 		}
 	}
 }
-
-//Channels for the network
-//var outgoingMsg = make(chan consts.Message, 10)
-//var incomingMsg = make(chan consts.Message, 10)
 
 func main() {
 	numFloors := flag.Int("numFloors", 4, "elevator id")
@@ -117,8 +121,6 @@ func main() {
 
 	errorChan := make(chan consts.ElevatorError)
 	newRoleChan := make(chan bool)
-	//stateChan := make(chan common.Elevator)
-	orderChan := make(chan consts.ButtonEvent)
 
 	// master-backup-slave decision
 	roleDecision()	// TODO uncomment
@@ -131,7 +133,7 @@ func main() {
 	//go network.ErrorDetection(errorChan)
 	go errorHandler(errorChan, newRoleChan)
 	go startCommonProcedures(buttonsChan, obstructChan, stopChan)
-	go roleChangeHandler(orderChan, newRoleChan)
+	go roleChangeHandler(newRoleChan)
 
 	newRoleChan <- true
 	log.Println(consts.Green, "App started", consts.Neutral)

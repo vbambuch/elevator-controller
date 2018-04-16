@@ -10,22 +10,19 @@ import (
 	"elevator/common"
 	"network"
 	"container/list"
+	"helper"
 )
 
 
 // Master
 type Master struct {
-	orderList *list.List
-	mux       sync.Mutex
-	slaveDB   *SlavesDB
+	orderList 	*list.List
+	mux       	sync.Mutex
+	slaveDB   	*SlavesDB
+	backupConn	*net.UDPConn
 }
 
-type hallOrders struct {
-	order      consts.ButtonEvent
-	assignedTo string
-}
-
-func (m *Master) getList() *list.List {
+func (m *Master) getOrderList() *list.List {
 	m.mux.Lock()
 	defer m.mux.Unlock()
 	return m.orderList
@@ -37,11 +34,23 @@ func (m *Master) getDB() *SlavesDB {
 	return m.slaveDB
 }
 
+func (m *Master) setBackupConn(conn *net.UDPConn) {
+	m.mux.Lock()
+	defer m.mux.Unlock()
+	m.backupConn = conn
+}
+
+func (m *Master) getBackupConn() *net.UDPConn {
+	m.mux.Lock()
+	defer m.mux.Unlock()
+	return m.backupConn
+}
+
 func (m *Master) newOrder(order consts.ButtonEvent) bool {
 	m.mux.Lock()
 	defer m.mux.Unlock()
 	for el := m.orderList.Front(); el != nil; el = el.Next() {
-		data := el.Value.(hallOrders).order
+		data := el.Value.(consts.HallOrders).Order
 		if data.Floor == order.Floor && data.Button == order.Button {
 			return false
 		}
@@ -53,7 +62,7 @@ func (m *Master) deleteOrder(order consts.ButtonEvent)  {
 	m.mux.Lock()
 	defer m.mux.Unlock()
 	for el := m.orderList.Front(); el != nil; el = el.Next() {
-		data := el.Value.(hallOrders).order
+		data := el.Value.(consts.HallOrders).Order
 		if data.Floor == order.Floor && data.Button == order.Button {
 			m.orderList.Remove(el)
 		}
@@ -64,9 +73,9 @@ func (m *Master) getOrder() (interface{}) {
 	m.mux.Lock()
 	defer m.mux.Unlock()
 	for el := m.orderList.Front(); el != nil; el = el.Next() {
-		data := el.Value.(hallOrders)
-		if data.assignedTo == consts.Unassigned {
-			return data.order
+		data := el.Value.(consts.HallOrders)
+		if data.AssignedTo == consts.Unassigned {
+			return data.Order
 		}
 	}
 	return nil
@@ -76,11 +85,11 @@ func (m *Master) assignedToSlave(order consts.ButtonEvent, ipAddr string) {
 	m.mux.Lock()
 	defer m.mux.Unlock()
 	for el := m.orderList.Front(); el != nil; el = el.Next() {
-		data := el.Value.(hallOrders).order
+		data := el.Value.(consts.HallOrders).Order
 		if data.Floor == order.Floor && data.Button == order.Button {
-			el.Value = hallOrders{
-				order:      order,
-				assignedTo: ipAddr,
+			el.Value = consts.HallOrders{
+				Order:      order,
+				AssignedTo: ipAddr,
 			}
 		}
 	}
@@ -90,13 +99,13 @@ func (m *Master) makeHallOrderAvailable(ipAddr string)  {
 	m.mux.Lock()
 	defer m.mux.Unlock()
 	for el := m.orderList.Front(); el != nil; el = el.Next() {
-		data := el.Value.(hallOrders)
-		if data.assignedTo == ipAddr {
-			el.Value = hallOrders{
-				order:      data.order,
-				assignedTo: consts.Unassigned,
+		data := el.Value.(consts.HallOrders)
+		if data.AssignedTo == ipAddr {
+			el.Value = consts.HallOrders{
+				Order:      data.Order,
+				AssignedTo: consts.Unassigned,
 			}
-			log.Println(consts.Yellow, "Available again:", data.order, consts.Neutral)
+			log.Println(consts.Yellow, "Available again:", data.Order, consts.Neutral)
 		}
 	}
 }
@@ -106,7 +115,7 @@ func (m *Master) updateHallButtons(conn *net.UDPConn)  {
 	orderList := m.orderList.Front()
 	m.mux.Unlock()
 	for el := orderList; el != nil; el = el.Next() {
-		order := el.Value.(hallOrders).order
+		order := el.Value.(consts.HallOrders).Order
 		orderData := consts.NotificationData{
 			Code: consts.MasterHallLight,
 			Data: common.GetRawJSON(order),
@@ -121,22 +130,25 @@ func (m *Master) dumpList() {
 	defer m.mux.Unlock()
 	log.Println(consts.Yellow, "----------", consts.Neutral)
 	for el := m.orderList.Front(); el != nil; el = el.Next() {
-		data := el.Value.(hallOrders)
+		data := el.Value.(consts.HallOrders)
 		log.Print(consts.Yellow,
-			" Floor:", data.order.Floor,
-			" Button:", data.order.Button,
-			" Assigned to: ", data.assignedTo,
+			" Floor:", data.Order.Floor,
+			" Button:", data.Order.Button,
+			" Assigned to: ", data.AssignedTo,
 		consts.Neutral)
 	}
 	log.Println()
 	log.Println(consts.Yellow, "-----", consts.Neutral)
 }
 
-func (m *Master) sendToSlave(conn *net.UDPConn, notification consts.NotificationData) {
+func (m *Master) sendToSlave(conn *net.UDPConn, notification interface{}) {
 	data := common.GetNotification(notification)
 	if conn != nil {
-		//log.Println(consts.White, "Send to:", conn.RemoteAddr(), consts.Neutral)
-		conn.Write(data)
+		_, err := conn.Write(data)
+		helper.HandleError(err, "Sending to slave")
+		//log.Println(consts.White, "Sent to:", conn.RemoteAddr(), consts.Neutral)
+		//log.Println(consts.White, "Sent", n, "bytes", consts.Neutral)
+
 	}
 }
 
@@ -193,12 +205,12 @@ func (m *Master) masterHallOrderHandler() {
 				})
 
 				// order is in progress => wait for resolving
-				// skip whit order meanwhile
+				// skip this order meanwhile
 				m.assignedToSlave(order, ip)
 				//m.dumpList()
 
 				log.Println(consts.White, ip, ": parsed order", order, consts.Neutral)
-				//m.getList().Dump()
+				//m.getOrderList().Dump()
 
 				orderData := consts.NotificationData{
 					Code: consts.MasterHallOrder,
@@ -217,7 +229,7 @@ func (m *Master) masterHallOrderHandler() {
 func (m *Master) listenIncomingMsg(conn *net.UDPConn) {
 	var typeJson consts.NotificationData
 	buffer := make([]byte, 8192)
-	hallList := m.getList()
+	hallList := m.getOrderList()
 
 	for {
 		n, err := conn.Read(buffer[0:])
@@ -257,13 +269,13 @@ func (m *Master) listenIncomingMsg(conn *net.UDPConn) {
 				//log.Println(consts.White, "orderList length:", hallList.Len(), consts.Neutral)
 
 				if m.newOrder(order) {
-					hallOrder := hallOrders{
-						order:      order,
-						assignedTo: consts.Unassigned,
+					hallOrder := consts.HallOrders{
+						Order:      order,
+						AssignedTo: consts.Unassigned,
 					}
 					hallList.PushBack(hallOrder)
 
-					//m.getList().Dump()
+					//m.getOrderList().Dump()
 
 					//broadcast all slaves to turn on light bulbs
 					notification := consts.NotificationData{
@@ -327,6 +339,33 @@ func (m *Master) listenIncomingMsg(conn *net.UDPConn) {
 	}
 }
 
+func (m *Master) synchronizeDataWithBackup() {
+	conn := network.GetSendConn(network.GetBroadcastAddress()+consts.BackupPort)
+
+	for {
+		backupSync := consts.BackupSync{
+			SlavesList: helper.ListToSlavesArray(*m.getDB().getList()),
+			OrderList:  helper.ListToOrderArray(*m.getOrderList()),
+			Timestamp:  time.Now(),
+		}
+		m.sendToSlave(conn, backupSync)
+		time.Sleep(100 * consts.PollRate)
+	}
+}
+
+func (m *Master) recreateSlavesConnections() {
+	for el := m.getDB().getList().Front(); el != nil; el = el.Next() {
+		data := el.Value.(consts.DBItem)
+		log.Println(consts.White, "New connection for:", data.Data.ListenIP, consts.Neutral)
+		conn := network.GetSendConn(data.Data.ListenIP)
+		el.Value = consts.DBItem{
+			ClientConn: conn,
+			Timestamp: 	data.Timestamp,
+			Data: 		data.Data,
+		}
+	}
+}
+
 /**
  * defer old instance
  * create Master
@@ -338,18 +377,31 @@ func (m *Master) listenIncomingMsg(conn *net.UDPConn) {
  * ping all slaves/backup
  * do same things as Slave
  */
-func StartMaster() {
+func StartMaster(backupData consts.BackupSync) {
 	listenConn := network.GetListenConn(network.GetBroadcastAddress()+consts.MasterPort)
 
-	slavesDB := SlavesDB{}
+	orderList := helper.OrderArrayToList(backupData.OrderList)
+	slavesList := helper.SlaveArrayToList(backupData.SlavesList)
+
+	slavesDB := SlavesDB{list: slavesList}
 	master := Master{
-		list.New(),
+		orderList,
 		sync.Mutex{},
 		&slavesDB,
+		nil,
 	}
+
+	if slavesList.Len() != 0 { 	// recovered from backup
+		log.Println(consts.White, "Recovering master from backup...", consts.Neutral)
+		master.recreateSlavesConnections()
+	} else {					// brand new master
+		log.Println(consts.White, "Starting new master...", consts.Neutral)
+	}
+
 
 	go master.listenIncomingMsg(listenConn)
 	go master.masterHallOrderHandler()
+	go master.synchronizeDataWithBackup()
 }
 
 

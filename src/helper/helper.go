@@ -3,6 +3,7 @@ package helper
 import (
 	"consts"
 	"sort"
+	"container/list"
 )
 
 type ASCFloors []consts.ButtonEvent
@@ -29,15 +30,34 @@ func (a ByFloorDiff) Less(i, j int) bool { return a[i].FloorDiff < a[j].FloorDif
 
 
 
-func QueueToArray(queue consts.Queue) ([]consts.ButtonEvent) {
-	var result []consts.ButtonEvent
-	for {
-		if queue.Count != 0 {
-			item := queue.Pop().(consts.ButtonEvent)
-			result = append(result, item)
-		} else {
-			break
-		}
+func ListToOrderArray(list list.List) ([]consts.HallOrders) {
+	var result []consts.HallOrders
+	for el := list.Front(); el != nil; el = el.Next() {
+		result = append(result, el.Value.(consts.HallOrders))
+	}
+	return result
+}
+
+func ListToSlavesArray(list list.List) ([]consts.DBItem) {
+	var result []consts.DBItem
+	for el := list.Front(); el != nil; el = el.Next() {
+		result = append(result, el.Value.(consts.DBItem))
+	}
+	return result
+}
+
+func OrderArrayToList(array []consts.HallOrders) (*list.List) {
+	result := list.New()
+	for _, v := range array {
+		result.PushBack(v)
+	}
+	return result
+}
+
+func SlaveArrayToList(array []consts.DBItem) (*list.List) {
+	result := list.New()
+	for _, v := range array {
+		result.PushBack(v)
 	}
 	return result
 }

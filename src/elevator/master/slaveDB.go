@@ -15,11 +15,11 @@ import (
 
 
 type SlavesDB struct {
-	list list.List		// list of dbItems
+	list *list.List		// list of dbItems
 	mux  sync.Mutex
 }
 
-func (i *SlavesDB) getList() (list.List) {
+func (i *SlavesDB) getList() (*list.List) {
 	i.mux.Lock()
 	defer i.mux.Unlock()
 	return i.list

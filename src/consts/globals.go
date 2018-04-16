@@ -12,6 +12,7 @@ const MiddleFloor = -1
 
 const LocalAddress = "localhost:"
 const MasterPort = "56789"
+const BackupPort = "57890"
 var ElevatorPort = ""
 
 var MasterBroadCast = ""
@@ -19,11 +20,11 @@ var MasterBroadCast = ""
 // Elevator consts
 const DefaultValue = -2
 var DefaultOrder = ButtonEvent{DefaultValue, DefaultValue}
-type MotorDirection int
 const PollRate = 20 * time.Millisecond
 const Unassigned = "UnassignedHallOrder"
 const NoOutdated  = "NoOutdatedElevator"
 
+type MotorDirection int
 const (
 	MotorUP   MotorDirection = 1
 	MotorDOWN                = -1
@@ -31,7 +32,6 @@ const (
 )
 
 type ButtonType int
-
 const (
 	ButtonUP   ButtonType = 0
 	ButtonDOWN            = 1
@@ -51,12 +51,16 @@ const (
 )
 
 type Role int
-
 const (
 	Master	Role = 1
 	Backup		 = 2
 	Slave 		 = 3
 )
+
+type HallOrders struct {
+	Order      ButtonEvent
+	AssignedTo string
+}
 
 // SlaveDB
 type FreeElevatorItem struct {
@@ -71,6 +75,12 @@ type DBItem struct {
 	Data       	PeriodicData
 }
 
+// Backup sync data
+type BackupSync struct {
+	SlavesList []DBItem
+	OrderList  []HallOrders
+	Timestamp  time.Time
+}
 
 // Error detection
 type ErrorCode int
