@@ -95,19 +95,10 @@ func main() {
 	elPort := flag.String("elPort", "15657", "my elevator port")
 
 	// TODO remove when network is done...
-	//masterPort := flag.String("masterPort", "20002", "master localhost port")
-	//myPort := flag.String("myPort", "20000", "my localhost port")
 	myRole := flag.Int("myRole", 1, "1: Master, 2: Backup, 3: Slave")
 	flag.Parse()
 
-	//log.Println(consts.Green, "Master port:", *masterPort, consts.Neutral)
-	//log.Println(consts.Green, "My port:", *myPort, consts.Neutral)
-
-	//log.Println(consts.Green, "My role:", *myRole, consts.Neutral)
-
 	consts.ElevatorPort = *elPort
-	//consts.MasterPort = *masterPort
-	//consts.MyPort = *myPort
 
 	// TODO ...remove when network is done
 
