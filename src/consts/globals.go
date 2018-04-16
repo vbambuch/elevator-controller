@@ -89,6 +89,7 @@ const (
 	MasterFailed	ErrorCode = 1
 	BackupFailed			  = 2
 	SlaveFailed				  = 3
+	ElevatorFailed			  = -2
 )
 
 type ElevatorError struct {
