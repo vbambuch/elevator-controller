@@ -15,8 +15,6 @@ const MasterPort = "56789"
 const BackupPort = "57890"
 var ElevatorPort = ""
 
-var MasterBroadCast = ""
-
 // Elevator consts
 const DefaultValue = -2
 var DefaultOrder = ButtonEvent{DefaultValue, DefaultValue}
@@ -55,6 +53,7 @@ const (
 	Master	Role = 1
 	Backup		 = 2
 	Slave 		 = 3
+	DefaultRole  = 4
 )
 
 type HallOrders struct {

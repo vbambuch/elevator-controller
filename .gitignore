@@ -7,7 +7,6 @@ pkg/
 Simulator-v2/SimElevatorServer
 Simulator-v2/SimElevatorServer.o
 
-start
 
 # Emacs autosave files
 **/*~

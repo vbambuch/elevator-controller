@@ -8,10 +8,13 @@ import (
 	"elevator/common"
 	"elevator/slave"
 	"flag"
+	"time"
 )
 
-func roleDecision()  {
-	role := network.FindOutRole()
+func roleDecision(idAddr string)  {
+	common.ElevatorState.SetRole(consts.DefaultRole)
+
+	role := network.FindOutRole(idAddr)
 	//role := network.FindOutNewMaster()
 	common.ElevatorState.SetRole(role)
 	//common.ElevatorState.SetMasterConn()
@@ -23,22 +26,21 @@ func roleDecision()  {
 func startCommonProcedures(
 	buttonsChan <-chan consts.ButtonEvent,
 	obstructChan <-chan bool,
-	stopChan <-chan bool)  {
+	stopChan <-chan bool,
+	newRoleChan chan<- bool,
+	ipAddr string)  {
 
 	receivedHallChan := make(chan consts.ButtonEvent)
-
-	masterConn := network.GetSendConn(network.GetBroadcastAddress()+consts.MasterPort)
-	common.ElevatorState.SetMasterConn(masterConn)
-
-	ipAddr := network.IncreasePortForAddress(masterConn.LocalAddr().String())
 	conn := network.GetListenConn(ipAddr)
 
 	go common.PeriodicNotifications(ipAddr)
-	go common.ListenIncomingMsg(receivedHallChan, conn)
+	go common.ListenIncomingMsg(receivedHallChan, conn, newRoleChan)
 	go common.ButtonsHandler(buttonsChan, receivedHallChan, obstructChan, stopChan)
 }
 
 func resolveRoleChange(masterFailed chan<- consts.BackupSync, backupData consts.BackupSync)  {
+
+
 	switch common.ElevatorState.GetRole() {
 	case consts.Master:
 		log.Println(consts.Blue, "It's master", consts.Neutral)
@@ -60,6 +62,7 @@ func roleChangeHandler(newRoleChan <-chan bool)  {
 	for {
 		select {
 		case <- newRoleChan:
+			//role := common.ElevatorState.GetRole()
 			resolveRoleChange(masterFailed, backupData)
 		case backupData = <- masterFailed:
 			log.Println(consts.Yellow, "backup data:", backupData, consts.Neutral)
@@ -69,61 +72,31 @@ func roleChangeHandler(newRoleChan <-chan bool)  {
 	}
 }
 
-func errorHandler(errorChan <-chan consts.ElevatorError, newRoleChan chan<- bool) {
-    for {
-    	select {
-		case err := <- errorChan:
-			switch err.Code {
-			case consts.MasterFailed:
-				log.Println("Master failed")
-				roleDecision()
-				newRoleChan <- true
-			case consts.BackupFailed:
-				log.Println("Backup failed")
-				roleDecision()
-				newRoleChan <- true
-			case consts.SlaveFailed:
-				log.Println("Slave failed")
-			}
-		}
-	}
-}
 
 func main() {
 	numFloors := flag.Int("numFloors", 4, "elevator id")
 	id := flag.Int("id", 0, "elevator id")
 	elPort := flag.String("elPort", "15657", "my elevator port")
 
-	// TODO remove when network is done...
-	//masterPort := flag.String("masterPort", "20002", "master localhost port")
-	//myPort := flag.String("myPort", "20000", "my localhost port")
-	//myRole := flag.Int("myRole", 1, "1: Master, 2: Backup, 3: Slave")
 	flag.Parse()
-
-	//log.Println(consts.Green, "Master port:", *masterPort, consts.Neutral)
-	//log.Println(consts.Green, "My port:", *myPort, consts.Neutral)
-
-	//log.Println(consts.Green, "My role:", *myRole, consts.Neutral)
-
-	consts.ElevatorPort = *elPort
-	//consts.MasterPort = *masterPort
-	//consts.MyPort = *myPort
-
-	// TODO ...remove when network is done
-
 
 	log.Println(consts.Green, "Elevator ID:", *id, consts.Neutral)
 	log.Println(consts.Green, "Number of floors:", *numFloors, consts.Neutral)
 	log.Println(consts.Green, "Elevator port:", *elPort, consts.Neutral)
 
+	consts.ElevatorPort = *elPort
 	consts.NumFloors = *numFloors
 	consts.MaxFloor = *numFloors - 1
 
-	errorChan := make(chan consts.ElevatorError)
+	masterConn := network.GetSendConn(network.GetBroadcastAddress()+consts.MasterPort)
+	common.ElevatorState.SetMasterConn(masterConn)
+	ipAddr := network.IncreasePortForAddress(masterConn.LocalAddr().String())
+
+	log.Println(consts.Green, "My IP:", ipAddr, consts.Neutral)
+
+	//errorChan := make(chan consts.ElevatorError)
 	newRoleChan := make(chan bool)
 
-	// master-backup-slave decision
-	roleDecision()	// TODO uncomment
 	//common.ElevatorState.SetRole(consts.Role(*myRole)) // TODO remove
 
 	buttonsChan, obstructChan, stopChan := common.Init()
@@ -131,11 +104,18 @@ func main() {
 
 	// start error detection
 	//go network.ErrorDetection(errorChan)
-	go errorHandler(errorChan, newRoleChan)
-	go startCommonProcedures(buttonsChan, obstructChan, stopChan)
+	//go errorHandler(errorChan, newRoleChan)
+	go startCommonProcedures(buttonsChan, obstructChan, stopChan, newRoleChan, ipAddr)
 	go roleChangeHandler(newRoleChan)
 
-	newRoleChan <- true
+
+	time.Sleep(500 * time.Millisecond)
+	// master-backup-slave decision
+	roleDecision(ipAddr)	// TODO uncomment
+
+	if common.ElevatorState.GetRole() == consts.Master {
+		newRoleChan <- true
+	}
 	log.Println(consts.Green, "App started", consts.Neutral)
 
 	blocker := make(chan bool, 1)
