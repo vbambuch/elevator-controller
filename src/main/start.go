@@ -79,6 +79,7 @@ func main() {
 	elPort := flag.String("elPort", "15657", "my elevator port")
 
 	flag.Parse()
+
 	log.Println(consts.Green, "Elevator ID:", *id, consts.Neutral)
 	log.Println(consts.Green, "Number of floors:", *numFloors, consts.Neutral)
 	log.Println(consts.Green, "Elevator port:", *elPort, consts.Neutral)
