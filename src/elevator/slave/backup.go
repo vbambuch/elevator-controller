@@ -96,6 +96,6 @@ func StartBackup(masterFailed chan<- consts.BackupSync) {
 	go backup.listenIncomingMsg()
 
 	// wait for master data before checking validity
-	time.Sleep(100 * consts.PollRate)
+	time.Sleep(200 * consts.PollRate)
 	go backup.checkMasterAlive(masterFailed)
 }
