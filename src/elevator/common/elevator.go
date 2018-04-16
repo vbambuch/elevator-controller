@@ -167,12 +167,6 @@ func (e *Elevator) SetDirection(direction consts.MotorDirection) {
 	WriteMotorDirection(direction)
 }
 
-func (e *Elevator) SetFloor(floor int) {
- 	e.mux.Lock()
- 	defer e.mux.Unlock()
- 	e.floor = floor
-}
-
 func (e *Elevator) SetFloorIndicator(floor int) {
 	e.mux.Lock()
 	if e.prevFloor == consts.DefaultValue {

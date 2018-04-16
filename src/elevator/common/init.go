@@ -4,21 +4,13 @@ import (
 	"consts"
 	"time"
 	"log"
-	"network"
 )
 
 func floorHandler(floorChan <-chan int) {
     for {
 		floor := <-floorChan
-		//log.Printf("floor changed: %+v\n", floor)
-		if floor == consts.ElevatorFailed {
-			ElevatorState.SetMasterConn(nil)
-			ReInitIO()
-			addr := network.GetBroadcastAddress()+consts.MasterPort
-			ElevatorState.SetMasterConn(network.GetSendConn(addr))
-			ElevatorState.SetFree(true)
-			//} else if floor != ElevatorState.GetFloor() {
-		} else {
+		//log.Printf("floor: %+v\n", floor)
+		if floor != ElevatorState.GetFloor() {
 			if floor == consts.MinFloor || floor == consts.MaxFloor &&
 				ElevatorState.IsMoving() {
 				ElevatorState.SetDirection(consts.MotorSTOP)
@@ -31,23 +23,6 @@ func floorHandler(floorChan <-chan int) {
 			}
 		}
 	}
-}
-
-func initializeElevator() {
-	setup := true
-	time.Sleep(2 * consts.PollRate) // wait for message exchange
-
-	log.Println(consts.Cyan, "Floor init:", ElevatorState.GetFloor(), consts.Neutral)
-
-	for ElevatorState.GetFloor() == consts.MiddleFloor || ElevatorState.GetFloor() == consts.DefaultValue {
-		if setup {
-			ElevatorState.SetDirection(consts.MotorUP)
-			log.Println(consts.Green, "Elevator is moving to floor...", consts.Neutral)
-			setup = false
-		}
-		time.Sleep(consts.PollRate)
-	}
-	ElevatorState.SetDirection(consts.MotorSTOP)
 }
 
 func defaultElevatorState()  {
@@ -69,10 +44,10 @@ func Init() (chan consts.ButtonEvent, chan bool, chan bool) {
 	obstructChan := make(chan bool)
 	stopChan := make(chan bool)
 
-	go pollFloorSensor(floorChan)
-	go pollObstructionSwitch(obstructChan)
-	go pollStopButton(stopChan)
-	go pollButtons(buttonsChan)
+	go PollFloorSensor(floorChan)
+	go PollObstructionSwitch(obstructChan)
+	go PollStopButton(stopChan)
+	go PollButtons(buttonsChan)
 
 	go floorHandler(floorChan)
 
@@ -80,6 +55,16 @@ func Init() (chan consts.ButtonEvent, chan bool, chan bool) {
 	defaultElevatorState()
 
 	// wait for initialization of elevator
-	initializeElevator()
+	setup := true
+	time.Sleep(2 * consts.PollRate) // wait for message exchange
+	for ElevatorState.GetFloor() == consts.DefaultValue {
+		if setup {
+			ElevatorState.SetDirection(consts.MotorUP)
+			log.Println(consts.Green, "Elevator is moving to floor...", consts.Neutral)
+			setup = false
+		}
+		time.Sleep(consts.PollRate)
+	}
+	ElevatorState.SetDirection(consts.MotorSTOP)
 	return buttonsChan, obstructChan, stopChan
 }

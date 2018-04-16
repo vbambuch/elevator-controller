@@ -156,8 +156,8 @@ func (i *SlavesDB) findElevatorOnFloor(floor int) interface{} {
 	var onFloorArray []consts.DBItem
 	for e := i.list.Front(); e != nil; e = e.Next() {
 		slave := e.Value.(consts.DBItem)
-		// doesn't need to be after hall-processing
-		if slave.Data.Floor == floor && !slave.Data.Stopped && slave.Data.Free{
+		// doesn't need to be free neither after hall-processing
+		if slave.Data.Floor == floor && !slave.Data.Stopped {
 			onFloorArray = append(onFloorArray, slave)
 		}
 	}
