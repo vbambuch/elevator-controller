@@ -203,7 +203,9 @@ func ButtonsHandler(
 	}
 }
 
-
+/**
+ * Broadcast information about its state to master
+ */
 func PeriodicNotifications(ipAddr string) {
 	for {
 		data := consts.PeriodicData{

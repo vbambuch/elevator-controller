@@ -16,6 +16,7 @@ const (
 	MasterHallLight                    = 2
 	MasterHallOrder                    = 3
 	MasterBroadcastIP                  = 4
+	MasterSyncData					   = 6
 )
 
 type NotificationData struct {
