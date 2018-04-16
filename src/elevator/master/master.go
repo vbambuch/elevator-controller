@@ -311,7 +311,7 @@ func (m *Master) listenIncomingMsg(conn *net.UDPConn) {
 						ListenIP: ip,
 					},
 				}
-
+				log.Println(consts.Cyan,"Recieved IP: ", ip, consts.Neutral)
 				tmpDB := m.getDB()
 				tmpList := tmpDB.getList()
 				tmpList.PushBack(item)

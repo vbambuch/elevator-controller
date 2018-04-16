@@ -59,8 +59,10 @@ func (e *Elevator) SendToMaster(data consts.Notification) bool {
 	defer e.mux.Unlock()
 
 	if e.masterConn != nil {
-		e.masterConn.Write(data)
-		return true
+		_, err := e.masterConn.Write(data)
+		if err == nil{
+			return true
+		}
 	}
 	return false
 }

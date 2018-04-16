@@ -87,6 +87,7 @@ func FindOutRole() (consts.Role) {
 				}
 				timeout.Reset(2*time.Second)
 				ready = false
+
 			}
 
 
