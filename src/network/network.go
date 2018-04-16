@@ -7,6 +7,17 @@ import (
 	"strconv"
 )
 
+
+func GetTCPSendConn(ipAddr string) (*net.TCPConn, error) {
+	addr, err := net.ResolveTCPAddr("tcp", ipAddr)
+	helper.HandleError(err, "TCP resolve failed")
+
+	conn, err := net.DialTCP("tcp", nil, addr)
+	//helper.HandleError(err, "TCP dial failed")
+
+	return conn, err
+}
+
 func GetSendConn(ipAddr string) (*net.UDPConn) {
 	//log.Println(consts.Grey, "Send conn ip:", ipAddr, consts.Neutral)
 
