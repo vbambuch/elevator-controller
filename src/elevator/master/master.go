@@ -195,6 +195,7 @@ func (m *Master) masterHallOrderHandler() {
 					Timestamp: 		item.Timestamp,
 					Data: consts.PeriodicData{
 						ListenIP:       ip,
+						Role:			item.Data.Role,
 						Floor:          item.Data.Floor,
 						Direction:      item.Data.Direction,
 						OrderArray:     item.Data.OrderArray,
@@ -247,7 +248,7 @@ func (m *Master) listenIncomingMsg(conn *net.UDPConn) {
 				log.Fatal(err2)
 			}
 
-			//log.Println(consts.White, "received", typeJson)
+			//log.Println(consts.White, "received:", typeJson.Code)
 
 
 			switch typeJson.Code {
@@ -305,17 +306,13 @@ func (m *Master) listenIncomingMsg(conn *net.UDPConn) {
 
 				clientConn := network.GetSendConn(ip)
 
-				item := consts.DBItem{
-					ClientConn: clientConn,
-					Data: 		consts.PeriodicData{
-						ListenIP: ip,
-					},
-				}
 				log.Println(consts.Cyan,"Recieved IP: ", ip, consts.Neutral)
 				tmpDB := m.getDB()
 				tmpList := tmpDB.getList()
-				tmpList.PushBack(item)
 
+				//m.getDB().dump()
+
+				//log.Println(consts.Cyan,"Len: ", tmpList.Len(), consts.Neutral)
 				if tmpList.Len() == 2{
 					role := consts.Backup
 					notification := consts.NotificationData{
@@ -366,6 +363,24 @@ func (m *Master) recreateSlavesConnections() {
 	}
 }
 
+
+func (m *Master) getNewBackup() *net.UDPConn {
+	//m.mux.Lock()
+	//defer m.mux.Unlock()
+	slavesList := m.getDB().getList()
+	if slavesList.Len() == 1 {
+		return nil
+	} else {
+		for el := slavesList.Front(); el != nil; el = el.Next() {
+			data := el.Value.(consts.DBItem)
+			if data.Data.Role == consts.Slave {
+				return data.ClientConn
+			}
+		}
+	}
+	return nil
+}
+
 /**
  * defer old instance
  * create Master
@@ -394,6 +409,16 @@ func StartMaster(backupData consts.BackupSync) {
 	if slavesList.Len() != 0 { 	// recovered from backup
 		log.Println(consts.White, "Recovering master from backup...", consts.Neutral)
 		master.recreateSlavesConnections()
+
+
+		conn := master.getNewBackup()
+
+		notification := consts.NotificationData{
+			Code: consts.FindRole,
+			Data: common.GetRawJSON(consts.Backup),
+		}
+		master.sendToSlave(conn, notification)
+
 	} else {					// brand new master
 		log.Println(consts.White, "Starting new master...", consts.Neutral)
 	}

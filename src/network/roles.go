@@ -43,28 +43,28 @@ func MsgListener(receivedRole chan<- consts.Role, conn *net.UDPConn) {
 	}
 }
 	// TODO implement role decision
-func FindOutRole() (consts.Role) {
+func FindOutRole(ipAddr string) (consts.Role) {
     /**
      * generate random number
      * exchange all numbers between nodes
      * first two bigger numbers are Master and Backup
      */
      //Create broadcast sending address
-	masterConn := GetSendConn(GetBroadcastAddress()+consts.MasterPort)
-	ipAddr := IncreasePortForAddress(masterConn.LocalAddr().String())
-	common.ElevatorState.SetMasterConn(masterConn)
-	conn := GetListenConn(ipAddr)
-    var a int
+	//masterConn := GetSendConn(GetBroadcastAddress()+consts.MasterPort)
+	//ipAddr = IncreasePortForAddress(masterConn.LocalAddr().String())
+	//common.ElevatorState.SetMasterConn(masterConn)
+	//conn := GetListenConn(ipAddr)
+    a := 0
     ready := false
 	rand.Seed(time.Now().UnixNano())
-	random := rand.Intn(6)
+	random := rand.Intn(6) + 2
 	log.Print("Random number: ", random)
 
 	var timeout = time.NewTimer(0)
-	receivedRole := make(chan consts.Role)
+	//receivedRole := make(chan consts.Role)
 
 	//Goroutine for forwarding IP
-	go MsgListener(receivedRole, conn)
+	//go MsgListener(receivedRole, conn)
 
 	notification := consts.NotificationData{
 		Code: consts.NewSlave,
@@ -77,26 +77,19 @@ func FindOutRole() (consts.Role) {
 		case <- timeout.C:
 			a++
 			ready = true
-		case role := <- receivedRole:
-			log.Println(consts.Cyan,"Role: ", role, consts.Neutral)
-			return role
 		default:
 			if ready{
 				if common.ElevatorState.SendToMaster(msg) {
-					log.Println(consts.Cyan, "Sending to master", consts.Neutral)
+					log.Println(consts.Cyan, "Sending to master", common.ElevatorState.GetMasterConn().RemoteAddr(), consts.Neutral)
 				}
 				timeout.Reset(2*time.Second)
 				ready = false
 
+			} else if common.ElevatorState.GetRole() != consts.DefaultRole {
+				return common.ElevatorState.GetRole()
 			}
-
-
 		}
-
-
 	}
-
-
 	return consts.Master
 }
 

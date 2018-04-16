@@ -29,17 +29,17 @@ func (i *SlavesDB) dump() {
 	i.mux.Lock()
 	defer i.mux.Unlock()
 
+	log.Println(consts.Yellow, "----------", consts.Neutral)
 	for e := i.list.Front(); e != nil; e = e.Next() {
 		data := e.Value.(consts.DBItem).Data
-		log.Println(consts.Yellow, "----------", consts.Neutral)
 		log.Println(consts.Yellow, "ip:", data.ListenIP, consts.Neutral)
-		log.Println(consts.Yellow, "floor:", data.Floor, consts.Neutral)
-		log.Println(consts.Yellow, "direction:", data.Direction, consts.Neutral)
-		log.Println(consts.Yellow, "queue:", data.OrderArray, consts.Neutral)
-		log.Println(consts.Yellow, "ready:", data.Free, consts.Neutral)
-		log.Println(consts.Yellow, "processing:", data.HallProcessing, consts.Neutral)
-		log.Println(consts.Yellow, "-----", consts.Neutral)
+		//log.Println(consts.Yellow, "floor:", data.Floor, consts.Neutral)
+		//log.Println(consts.Yellow, "direction:", data.Direction, consts.Neutral)
+		//log.Println(consts.Yellow, "queue:", data.OrderArray, consts.Neutral)
+		//log.Println(consts.Yellow, "ready:", data.Free, consts.Neutral)
+		//log.Println(consts.Yellow, "processing:", data.HallProcessing, consts.Neutral)
 	}
+	log.Println(consts.Yellow, "-----", consts.Neutral)
 }
 
 func (i *SlavesDB) exists(ip string) (bool) {

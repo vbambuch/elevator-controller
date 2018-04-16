@@ -211,6 +211,7 @@ func PeriodicNotifications(ipAddr string) {
 		data := consts.PeriodicData{
 			ListenIP:       ipAddr,
 			Floor:          ElevatorState.GetFloor(),
+			Role:			ElevatorState.GetRole(),
 			Direction:      ElevatorState.GetDirection(),
 			OrderArray:     ElevatorState.GetOrderArray(),
 			Free:           ElevatorState.GetFree(),
@@ -231,7 +232,7 @@ func PeriodicNotifications(ipAddr string) {
 	}
 }
 
-func ListenIncomingMsg(receivedHallChan chan<- consts.ButtonEvent, conn *net.UDPConn) {
+func ListenIncomingMsg(receivedHallChan chan<- consts.ButtonEvent, conn *net.UDPConn, newRoleChan chan<- bool) {
 	var typeJson consts.NotificationData
 	buffer := make([]byte, 8192)
 	//receivedOrder := make(chan consts.ButtonEvent)
@@ -269,6 +270,12 @@ func ListenIncomingMsg(receivedHallChan chan<- consts.ButtonEvent, conn *net.UDP
 					json.Unmarshal(typeJson.Data, &order)
 					//log.Println(consts.Cyan, "<- clear order:", order, consts.Neutral)
 					ElevatorState.ClearOrderButton(order)
+				case consts.FindRole:
+					var role consts.Role
+					json.Unmarshal(typeJson.Data, &role)
+					log.Println(consts.Blue, "Role received:", role, consts.Neutral)
+					ElevatorState.SetRole(role)
+					newRoleChan <- true
 				}
 			}
 		}
