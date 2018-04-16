@@ -97,7 +97,7 @@ func main() {
 	// TODO remove when network is done...
 	//masterPort := flag.String("masterPort", "20002", "master localhost port")
 	//myPort := flag.String("myPort", "20000", "my localhost port")
-	myRole := flag.Int("myRole", 1, "1: Master, 2: Backup, 3: Slave")
+	//myRole := flag.Int("myRole", 1, "1: Master, 2: Backup, 3: Slave")
 	flag.Parse()
 
 	//log.Println(consts.Green, "Master port:", *masterPort, consts.Neutral)
@@ -123,8 +123,8 @@ func main() {
 	newRoleChan := make(chan bool)
 
 	// master-backup-slave decision
-	//roleDecision()	// TODO uncomment
-	common.ElevatorState.SetRole(consts.Role(*myRole)) // TODO remove
+	roleDecision()	// TODO uncomment
+	//common.ElevatorState.SetRole(consts.Role(*myRole)) // TODO remove
 
 	buttonsChan, obstructChan, stopChan := common.Init()
 	//network.Initialize(outgoingMsg, incomingMsg)

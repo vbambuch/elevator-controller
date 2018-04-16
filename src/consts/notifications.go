@@ -17,6 +17,8 @@ const (
 	MasterHallOrder                    = 3
 	MasterBroadcastIP                  = 4
 	MasterSyncData					   = 6
+	FindRole						   = 7
+	NewSlave						   = 8
 )
 
 type NotificationData struct {
