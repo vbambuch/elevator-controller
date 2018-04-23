@@ -13,11 +13,8 @@ import (
 
 func roleDecision(idAddr string)  {
 	common.ElevatorState.SetRole(consts.DefaultRole)
-
 	role := network.FindOutRole(idAddr)
-	//role := network.FindOutNewMaster()
 	common.ElevatorState.SetRole(role)
-	//common.ElevatorState.SetMasterConn()
 }
 
 /**
@@ -38,9 +35,7 @@ func startCommonProcedures(
 	go common.ButtonsHandler(buttonsChan, receivedHallChan, obstructChan, stopChan)
 }
 
-func resolveRoleChange(masterFailed chan<- consts.BackupSync, backupData consts.BackupSync)  {
-
-
+func resolveRoleChange(masterFailed chan<- consts.BackupSync, backupData consts.BackupSync) {
 	switch common.ElevatorState.GetRole() {
 	case consts.Master:
 		log.Println(consts.Blue, "It's master", consts.Neutral)
@@ -53,16 +48,18 @@ func resolveRoleChange(masterFailed chan<- consts.BackupSync, backupData consts.
 	}
 }
 
+/**
+ * There are two ways how to change the role.
+ * - new backup is elected or master by default
+ * - master fails, backup will become new master
+ */
 func roleChangeHandler(newRoleChan <-chan bool)  {
-	//started := false
-	//finish := make(chan bool)
 	masterFailed := make(chan consts.BackupSync)
 	backupData := consts.BackupSync{}
 
 	for {
 		select {
 		case <- newRoleChan:
-			//role := common.ElevatorState.GetRole()
 			resolveRoleChange(masterFailed, backupData)
 		case backupData = <- masterFailed:
 			log.Println(consts.Yellow, "backup data:", backupData, consts.Neutral)
@@ -74,6 +71,7 @@ func roleChangeHandler(newRoleChan <-chan bool)  {
 
 
 func main() {
+	// define available script arguments
 	numFloors := flag.Int("numFloors", 4, "elevator id")
 	id := flag.Int("id", 0, "elevator id")
 	elPort := flag.String("elPort", "15657", "my elevator port")
@@ -88,31 +86,27 @@ func main() {
 	consts.NumFloors = *numFloors
 	consts.MaxFloor = *numFloors - 1
 
+	// create master connection and define own listening address
 	masterConn := network.GetSendConn(network.GetBroadcastAddress()+consts.MasterPort)
 	common.ElevatorState.SetMasterConn(masterConn)
 	ipAddr := network.IncreasePortForAddress(masterConn.LocalAddr().String())
-
 	log.Println(consts.Green, "My IP:", ipAddr, consts.Neutral)
 
-	//errorChan := make(chan consts.ElevatorError)
+	// init elevator driver
 	newRoleChan := make(chan bool)
-
-	//common.ElevatorState.SetRole(consts.Role(*myRole)) // TODO remove
-
 	buttonsChan, obstructChan, stopChan := common.Init()
-	//network.Initialize(outgoingMsg, incomingMsg)
 
 	// start error detection
-	//go network.ErrorDetection(errorChan)
-	//go errorHandler(errorChan, newRoleChan)
 	go startCommonProcedures(buttonsChan, obstructChan, stopChan, newRoleChan, ipAddr)
 	go roleChangeHandler(newRoleChan)
 
-
-	time.Sleep(500 * time.Millisecond)
 	// master-backup-slave decision
-	roleDecision(ipAddr)	// TODO uncomment
+	time.Sleep(500 * time.Millisecond)
+	roleDecision(ipAddr)
 
+	// quick and dirty fix
+	// slave is by default, backup is election in different way:
+	// common.ListenIncomingMsg => FindRole case
 	if common.ElevatorState.GetRole() == consts.Master {
 		newRoleChan <- true
 	}

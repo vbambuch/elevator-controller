@@ -107,7 +107,9 @@ func sendElevatorToFloor(order consts.ButtonEvent, onFloorChan chan<- bool, chan
 	}
 }
 
-
+/**
+ * Main handler goroutine for managing all buttons on elevator.
+ */
 func ButtonsHandler(
 	localButtonsChan <-chan consts.ButtonEvent,
 	remoteHallButtonChan <-chan consts.ButtonEvent,
@@ -125,9 +127,9 @@ func ButtonsHandler(
 
 	for {
 		select {
-		case <- onFloorChan:
+		case <- onFloorChan: // elevator arrived to particular floor
 			timeout.Reset(3 * time.Second)
-		case <- timeout.C:
+		case <- timeout.C:	// close the door after 3 seconds
 			ElevatorState.SetDoorLight(false)
 			ElevatorState.SetFree(true)
 			free = true
@@ -137,7 +139,7 @@ func ButtonsHandler(
 				ElevatorState.SetHallProcessing(false)
 			}
 
-		case button := <-localButtonsChan:
+		case button := <-localButtonsChan:	// own cab/hall button
 			if button.Button == consts.ButtonCAB {		// cab button pressed
 				if ElevatorState.NewOrder(button) {
 					orderInterrupted = handleNewOrder(button, changeOrderChan, orderInterrupted)
@@ -154,7 +156,7 @@ func ButtonsHandler(
 				}
 			}
 
-		case button := <-remoteHallButtonChan:
+		case button := <-remoteHallButtonChan:	// hall call has been assigned for this elevator by master
 			if ElevatorState.NewOrder(button) {
 				ElevatorState.SetHallProcessing(true)
 				orderInterrupted = handleNewOrder(button, changeOrderChan, orderInterrupted)
@@ -187,7 +189,7 @@ func ButtonsHandler(
 				}
 			}
 
-		default:
+		default: // otherwise look into the orderArray and pick correct order to process
 			if ElevatorState.GetStopButton() == false {
 				// just finished previous order or an interrupting cab order
 				if ElevatorState.OrderArrayNotEmpty() && (free || orderInterrupted) {
@@ -227,7 +229,6 @@ func PeriodicNotifications(ipAddr string) {
 		if ElevatorState.SendToMaster(msg) {
 			//log.Println(consts.Cyan, "-> periodic", *e.orderArray, consts.Neutral)
 		}
-		//time.Sleep(1 * time.Second)
 		time.Sleep(consts.PollRate)
 	}
 }
@@ -235,7 +236,6 @@ func PeriodicNotifications(ipAddr string) {
 func ListenIncomingMsg(receivedHallChan chan<- consts.ButtonEvent, conn *net.UDPConn, newRoleChan chan<- bool) {
 	var typeJson consts.NotificationData
 	buffer := make([]byte, 8192)
-	//receivedOrder := make(chan consts.ButtonEvent)
 
 	for {
 		n, err := conn.Read(buffer[0:])
@@ -243,9 +243,7 @@ func ListenIncomingMsg(receivedHallChan chan<- consts.ButtonEvent, conn *net.UDP
 			log.Println(consts.Red, "reading slave failed", consts.Neutral)
 			log.Fatal(err)
 		}
-		//log.Println(consts.Cyan, buffer, consts.Neutral)
 		if len(buffer) > 0 {
-			//log.Println(consts.Cyan, string(buffer), consts.Neutral)
 			err2 := json.Unmarshal(buffer[0:n], &typeJson)
 			if err2 != nil {
 				log.Println(consts.Red, "unmarshal slave failed", consts.Neutral)
@@ -255,22 +253,22 @@ func ListenIncomingMsg(receivedHallChan chan<- consts.ButtonEvent, conn *net.UDP
 				//log.Println(consts.Cyan, "<- received typeJson", typeJson, consts.Neutral)
 
 				switch typeJson.Code {
-				case consts.MasterHallOrder:
+				case consts.MasterHallOrder:	// received hall call from master
 					order := consts.ButtonEvent{}
 					json.Unmarshal(typeJson.Data, &order)
 					log.Println(consts.Cyan, "<- hall order:", order, consts.Neutral)
 					receivedHallChan <- order
-				case consts.MasterHallLight:
+				case consts.MasterHallLight:	// turn on the hall light for specific floor
 					order := consts.ButtonEvent{}
 					json.Unmarshal(typeJson.Data, &order)
 					//log.Println(consts.Cyan, "<- hall light:", order, consts.Neutral)
 					WriteButtonLamp(order.Button, order.Floor, true)
-				case consts.ClearHallOrder:
+				case consts.ClearHallOrder:		// turn off the hall light for specific floor
 					order := consts.ButtonEvent{}
 					json.Unmarshal(typeJson.Data, &order)
 					//log.Println(consts.Cyan, "<- clear order:", order, consts.Neutral)
 					ElevatorState.ClearOrderButton(order)
-				case consts.FindRole:
+				case consts.FindRole:			// received new role
 					var role consts.Role
 					json.Unmarshal(typeJson.Data, &role)
 					log.Println(consts.Blue, "Role received:", role, consts.Neutral)

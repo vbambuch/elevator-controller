@@ -17,7 +17,6 @@ var ElevatorPort = ""
 
 // Elevator consts
 const DefaultValue = -2
-var DefaultOrder = ButtonEvent{DefaultValue, DefaultValue}
 const PollRate = 20 * time.Millisecond
 const Unassigned = "UnassignedHallOrder"
 const NoOutdated  = "NoOutdatedElevator"
@@ -40,13 +39,6 @@ type ButtonEvent struct {
 	Floor  int
 	Button ButtonType
 }
-
-type QueueType int
-
-const (
-	CabQueue 	QueueType = 0
-	HallQueue 			  = 1
-)
 
 type Role int
 const (
@@ -79,19 +71,6 @@ type BackupSync struct {
 	SlavesList []DBItem
 	OrderList  []HallOrders
 	Timestamp  time.Time
-}
-
-// Error detection
-type ErrorCode int
-
-const (
-	MasterFailed	ErrorCode = 1
-	BackupFailed			  = 2
-	SlaveFailed				  = 3
-)
-
-type ElevatorError struct {
-	Code ErrorCode
 }
 
 // Logprint colours for printing to console

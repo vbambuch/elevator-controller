@@ -25,6 +25,9 @@ func floorHandler(floorChan <-chan int) {
 	}
 }
 
+/**
+ * Clear all orders and buttons.
+ */
 func defaultElevatorState()  {
 	for f := 0; f <= consts.MaxFloor; f++ {
 		for b := consts.ButtonType(0); b < 3; b++ {

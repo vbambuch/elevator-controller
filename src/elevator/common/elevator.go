@@ -22,7 +22,6 @@ var ElevatorState = Elevator {
 	false,
 	false,
 	false,
-	//helper.NewQueue(),
 	[]consts.ButtonEvent{},
 	sync.Mutex{},
 	consts.Slave,
@@ -41,7 +40,6 @@ type Elevator struct {
 	stopButton    	bool
 	obstruction   	bool
 	doorLight     	bool
-	//hallQueue     *consts.Queue
 	orderArray     []consts.ButtonEvent
 	mux            sync.Mutex
 	role           consts.Role
@@ -106,6 +104,7 @@ func (e *Elevator) GetOrder() (consts.ButtonEvent) {
 	movingDOWN := e.direction == consts.MotorDOWN || e.prevDirection == consts.MotorDOWN
 
 	orderCount := len(e.orderArray)
+	// return first element if only one exists or sort the array in correct way
 	if orderCount == 1 {
 		return e.orderArray[0]
 	} else if movingUP {
@@ -303,16 +302,6 @@ func (e *Elevator) GetDoorLight() bool {
 	defer e.mux.Unlock()
 	return e.doorLight
 }
-//func (i *Elevator) InsertToOrderArray(qt consts.QueueType) *helper.Queue {
-//	i.mux.Lock()
-//	defer i.mux.Unlock()
-//	queue := i.hallQueue
-//	if qt == consts.OrderArray {
-//		queue = i.orderArray
-//	}
-//	return queue
-//}
-
 
 func (e *Elevator) GetRole() (consts.Role) {
 	e.mux.Lock()

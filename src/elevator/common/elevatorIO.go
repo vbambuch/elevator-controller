@@ -12,6 +12,7 @@ var initialized = false
 var mutex sync.Mutex
 var connect net.Conn
 
+// reinit IO after obstruction button
 func ReInitIO()  {
 	if connect != nil {
 		connect.Close()

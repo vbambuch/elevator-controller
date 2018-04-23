@@ -55,6 +55,9 @@ func (i *SlavesDB) exists(ip string) (bool) {
 	return false
 }
 
+/**
+ * Update elevator state info if exists or insert new one.
+ */
 func (i *SlavesDB) updateOrInsert(item consts.DBItem) *net.UDPConn {
 	i.mux.Lock()
 	defer i.mux.Unlock()
@@ -62,10 +65,6 @@ func (i *SlavesDB) updateOrInsert(item consts.DBItem) *net.UDPConn {
 	for e := i.list.Front(); e != nil; e = e.Next() {
 		v := e.Value.(consts.DBItem)
 		if v.Data.ListenIP == item.Data.ListenIP {
-			//queue := v.data.OrderArray // keep previous queue
-			//log.Println(consts.White, "db item", v.ignore, v.data.Free)
-			//log.Printf("db item %+v", v.data.OrderArray.Len())
-
 			if v.Ignore > 0 {
 				e.Value = consts.DBItem{
 					ClientConn: v.ClientConn,	// keep previous conn
@@ -84,7 +83,6 @@ func (i *SlavesDB) updateOrInsert(item consts.DBItem) *net.UDPConn {
 			return nil
 		}
 	}
-	//log.Println(consts.Yellow, "trying to push", consts.Neutral)
 
 	clientConn := network.GetSendConn(item.Data.ListenIP)
 	item.ClientConn = clientConn
@@ -92,9 +90,9 @@ func (i *SlavesDB) updateOrInsert(item consts.DBItem) *net.UDPConn {
 	log.Println(consts.White, "ListenIP:", item.Data.ListenIP, consts.Neutral)
 
 	return clientConn
-	//log.Println(consts.White, "Conn:", item.clientConn.RemoteAddr(), consts.Neutral)
 }
 
+// kinda unnecessary method
 func (i *SlavesDB) storeData(data consts.PeriodicData) *net.UDPConn {
 	item := consts.DBItem{
 		ClientConn:	nil,
@@ -105,6 +103,9 @@ func (i *SlavesDB) storeData(data consts.PeriodicData) *net.UDPConn {
 	return i.updateOrInsert(item)
 }
 
+/**
+ * Go through the list of elevators and delete all dead elevators.
+ */
 func (i *SlavesDB) deleteOutdatedSlaves() string {
 	i.mux.Lock()
 	defer i.mux.Unlock()
@@ -142,7 +143,7 @@ func suitableElevator(cabArray []consts.ButtonEvent, currFloor int, hallOrder co
 	return false
 }
 
-// free variable overrides elData.Free
+// "free" variable overrides elData.Free
 // => "findSameDirection()" should return even if elevator isn't ready
 // => to be able to use one functions for two purposes
 func checkCommonConditions(elData consts.PeriodicData, free bool) bool {

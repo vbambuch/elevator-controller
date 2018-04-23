@@ -81,6 +81,10 @@ func (m *Master) getOrder() (interface{}) {
 	return nil
 }
 
+/**
+ * Reserve specific hall order to some elevator.
+ * To be able to assign to different one if previous failed.
+ */
 func (m *Master) assignedToSlave(order consts.ButtonEvent, ipAddr string) {
 	m.mux.Lock()
 	defer m.mux.Unlock()
@@ -95,6 +99,9 @@ func (m *Master) assignedToSlave(order consts.ButtonEvent, ipAddr string) {
 	}
 }
 
+/**
+ * Previous elevator failed => make the order available for others
+ */
 func (m *Master) makeHallOrderAvailable(ipAddr string)  {
 	m.mux.Lock()
 	defer m.mux.Unlock()
@@ -110,6 +117,10 @@ func (m *Master) makeHallOrderAvailable(ipAddr string)  {
 	}
 }
 
+/**
+ * New elevator has been connected to the network.
+ * Force him to turn on all current hall order lights.
+ */
 func (m *Master) updateHallButtons(conn *net.UDPConn)  {
 	m.mux.Lock()
 	orderList := m.orderList.Front()
@@ -146,14 +157,10 @@ func (m *Master) sendToSlave(conn *net.UDPConn, notification interface{}) {
 	if conn != nil {
 		_, err := conn.Write(data)
 		helper.HandleError(err, "Sending to slave")
-		//log.Println(consts.White, "Sent to:", conn.RemoteAddr(), consts.Neutral)
-		//log.Println(consts.White, "Sent", n, "bytes", consts.Neutral)
-
 	}
 }
 
 func (m *Master) broadcastToSlaves(data consts.NotificationData) {
-	//log.Println(consts.White, "broadcast", n)
 	slaves := m.getDB().getList()
 	for el := slaves.Front(); el != nil; el = el.Next() {
 		conn := el.Value.(consts.DBItem).ClientConn
@@ -161,6 +168,9 @@ func (m *Master) broadcastToSlaves(data consts.NotificationData) {
 	}
 }
 
+/**
+ * Get some available hall order and select correct elevator for that order.
+ */
 func (m *Master) masterHallOrderHandler() {
 	db := m.getDB()
 
@@ -175,14 +185,8 @@ func (m *Master) masterHallOrderHandler() {
 		queue := m.getOrder()
 		if queue != nil { // empty orderList test
 			order := queue.(consts.ButtonEvent)
-			//log.Println(consts.White, "peek of db", order)
-
-
-
 			elData := db.findElevator(order)
 			if elData != nil {
-				//log.Println(consts.Red, "elData:", elData, consts.Neutral)
-
 				// force this elevator to busy (don't wait for periodic update)
 				// ignore next 10 updates from specific slave
 				item := elData.(consts.DBItem)
@@ -208,10 +212,8 @@ func (m *Master) masterHallOrderHandler() {
 				// order is in progress => wait for resolving
 				// skip this order meanwhile
 				m.assignedToSlave(order, ip)
-				//m.dumpList()
 
 				log.Println(consts.White, ip, ": parsed order", order, consts.Neutral)
-				//m.getOrderList().Dump()
 
 				orderData := consts.NotificationData{
 					Code: consts.MasterHallOrder,
@@ -227,6 +229,9 @@ func (m *Master) masterHallOrderHandler() {
 	}
 }
 
+/**
+ * Listen for messages from all elevators on the broadcast address.
+ */
 func (m *Master) listenIncomingMsg(conn *net.UDPConn) {
 	var typeJson consts.NotificationData
 	buffer := make([]byte, 8192)
@@ -238,18 +243,12 @@ func (m *Master) listenIncomingMsg(conn *net.UDPConn) {
 			log.Println(consts.White, "reading master failed")
 			log.Fatal(err)
 		}
-		//log.Println(consts.White, string(buffer))
-		//log.Println(consts.White, buffer)
 		if len(buffer) > 0 {
-			//log.Println(consts.White, string(buffer))
 			err2 := json.Unmarshal(buffer[0:n], &typeJson)
 			if err2 != nil {
 				log.Println(consts.White, "unmarshal master failed")
 				log.Fatal(err2)
 			}
-
-			//log.Println(consts.White, "received:", typeJson.Code)
-
 
 			switch typeJson.Code {
 			case consts.SlavePeriodicMsg:
@@ -261,13 +260,10 @@ func (m *Master) listenIncomingMsg(conn *net.UDPConn) {
 				if conn != nil {
 					m.updateHallButtons(conn)
 				}
-
-				//m.getDB().dump()
 			case consts.SlaveHallOrder:
 				order := consts.ButtonEvent{}
 				json.Unmarshal(typeJson.Data, &order)
 				log.Println(consts.White, "<- hall order", consts.Neutral)
-				//log.Println(consts.White, "orderList length:", hallList.Len(), consts.Neutral)
 
 				if m.newOrder(order) {
 					hallOrder := consts.HallOrders{
@@ -275,8 +271,6 @@ func (m *Master) listenIncomingMsg(conn *net.UDPConn) {
 						AssignedTo: consts.Unassigned,
 					}
 					hallList.PushBack(hallOrder)
-
-					//m.getOrderList().Dump()
 
 					//broadcast all slaves to turn on light bulbs
 					notification := consts.NotificationData{
@@ -286,7 +280,7 @@ func (m *Master) listenIncomingMsg(conn *net.UDPConn) {
 					m.broadcastToSlaves(notification)
 				}
 
-			case consts.ClearHallOrder:
+			case consts.ClearHallOrder:	// elevator completed its order
 				order := consts.ButtonEvent{}
 				json.Unmarshal(typeJson.Data, &order)
 
@@ -300,20 +294,16 @@ func (m *Master) listenIncomingMsg(conn *net.UDPConn) {
 				}
 				m.broadcastToSlaves(notification)
 
-			case consts.NewSlave:
+			case consts.NewSlave:	// new elevator is trying to connect to the network and asking for role
 				var ip string
 				json.Unmarshal(typeJson.Data, &ip)
-
 				clientConn := network.GetSendConn(ip)
 
 				log.Println(consts.Cyan,"Recieved IP: ", ip, consts.Neutral)
 				tmpDB := m.getDB()
 				tmpList := tmpDB.getList()
 
-				//m.getDB().dump()
-
-				//log.Println(consts.Cyan,"Len: ", tmpList.Len(), consts.Neutral)
-				if tmpList.Len() == 2{
+				if tmpList.Len() == 2 {	// only master and new elevator are in the list => new elevator must be backup
 					role := consts.Backup
 					notification := consts.NotificationData{
 						Code: consts.FindRole,
@@ -321,7 +311,7 @@ func (m *Master) listenIncomingMsg(conn *net.UDPConn) {
 					}
 					m.sendToSlave(clientConn, notification)
 
-				} else {
+				} else { // backup has been elected already
 					role := consts.Slave
 					notification := consts.NotificationData{
 						Code: consts.FindRole,
@@ -336,6 +326,9 @@ func (m *Master) listenIncomingMsg(conn *net.UDPConn) {
 	}
 }
 
+/**
+ * Backup all info about connected elevators and hall orders to backup elevator.
+ */
 func (m *Master) synchronizeDataWithBackup() {
 	conn := network.GetSendConn(network.GetBroadcastAddress()+consts.BackupPort)
 
@@ -350,6 +343,9 @@ func (m *Master) synchronizeDataWithBackup() {
 	}
 }
 
+/**
+ * Backup elevator became master => new connections are needed.
+ */
 func (m *Master) recreateSlavesConnections() {
 	for el := m.getDB().getList().Front(); el != nil; el = el.Next() {
 		data := el.Value.(consts.DBItem)
@@ -363,10 +359,10 @@ func (m *Master) recreateSlavesConnections() {
 	}
 }
 
-
+/**
+ * Get first slave elevator from list. (for changing its role to backup)
+ */
 func (m *Master) getNewBackup() *net.UDPConn {
-	//m.mux.Lock()
-	//defer m.mux.Unlock()
 	slavesList := m.getDB().getList()
 	if slavesList.Len() == 1 {
 		return nil
@@ -410,7 +406,6 @@ func StartMaster(backupData consts.BackupSync) {
 		log.Println(consts.White, "Recovering master from backup...", consts.Neutral)
 		master.recreateSlavesConnections()
 
-
 		conn := master.getNewBackup()
 
 		notification := consts.NotificationData{
@@ -422,7 +417,6 @@ func StartMaster(backupData consts.BackupSync) {
 	} else {					// brand new master
 		log.Println(consts.White, "Starting new master...", consts.Neutral)
 	}
-
 
 	go master.listenIncomingMsg(listenConn)
 	go master.masterHallOrderHandler()
